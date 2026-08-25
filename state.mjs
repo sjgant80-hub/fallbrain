@@ -19,22 +19,26 @@ const arr = (v) => (v === undefined || v === null) ? [] : (Array.isArray(v) ? v 
 const REVIEW_WINDOW_MS = 30 * 86400000;
 
 /**
- * The verified map of organ databases — read from each organ's source, never guessed. The naming
- * convention SPLITS down the family: five use ".v1", five use "-v1" — an assumed convention would
- * have silently read half the estate as empty, so each entry here was verified against the shipped
- * page (2026-08-25). The snapshot lives in store "state", key "main"; clients ride in snap.clients.
+ * The verified map of organ databases — read from each organ's SHIPPED SOURCE, never guessed, every
+ * entry re-verified 2026-08-25. Two traps an assumed convention would have hit:
+ *   · the naming SPLITS: five organs use ".v1", five "-v1";
+ *   · the ARCHITECTURE splits: four organs keep clients in a snapshot (store "state", key "main",
+ *     snap.clients — mode "snapshot"), six keep them as per-record rows in a keyPath store whose
+ *     NAME varies (clients / candidates / patients / starters — mode "records"). A snapshot-only
+ *     reader silently reads the six as empty — the silent-empty defect class, caught by verifying.
+ * personStore names the row store for records mode; complaintsStore exists in claims only.
  */
 export const ORGAN_DBS = Object.freeze({
-  claims: { db: 'fallclaimonboard.v1', complaintsStore: 'complaints' },
-  legal: { db: 'falllegalonboard.v1', complaintsStore: null },
-  accountancy: { db: 'fallbooksonboard.v1', complaintsStore: null },
-  veterinary: { db: 'fallvetonboard.v1', complaintsStore: null },
-  insurance: { db: 'fallinsuranceonboard.v1', complaintsStore: null },
-  estate: { db: 'fallestateonboard-v1', complaintsStore: null },
-  clinic: { db: 'fallcliniconboard-v1', complaintsStore: null },
-  hr: { db: 'fallhronboard-v1', complaintsStore: null },
-  recruitment: { db: 'fallrecruitonboard-v1', complaintsStore: null },
-  mortgage: { db: 'fallmortgageonboard-v1', complaintsStore: null },
+  claims: { db: 'fallclaimonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: 'complaints' },
+  legal: { db: 'falllegalonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: null },
+  insurance: { db: 'fallinsuranceonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: null },
+  veterinary: { db: 'fallvetonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: null },
+  accountancy: { db: 'fallbooksonboard.v1', mode: 'records', personStore: 'clients', complaintsStore: null },
+  estate: { db: 'fallestateonboard-v1', mode: 'records', personStore: 'clients', complaintsStore: null },
+  mortgage: { db: 'fallmortgageonboard-v1', mode: 'records', personStore: 'clients', complaintsStore: null },
+  recruitment: { db: 'fallrecruitonboard-v1', mode: 'records', personStore: 'candidates', complaintsStore: null },
+  clinic: { db: 'fallcliniconboard-v1', mode: 'records', personStore: 'patients', complaintsStore: null },
+  hr: { db: 'fallhronboard-v1', mode: 'records', personStore: 'starters', complaintsStore: null },
   sharedInvoices: { db: 'fallinvoice', store: 'invoices' },
 });
 

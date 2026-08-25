@@ -137,9 +137,12 @@
   refusal needs a reason you could argue with, and a decided key stays decided — the kernel refuses the
   second turn. <b>An approved key writes back into the organ's own records</b> — in the organ's own shapes
   (the cooling cancellation lands on the client AND in the cooling-off register; letters attach to notes;
-  a refused key writes nothing) — then a re-read verifies the writes landed. Write-back is verified against
-  the CLAIMS organ so far; other verticals stay read-only until their shapes are verified the same way.
-  Approving a CDD letter does NOT flip verification status — that stays the organ's own act. The brain
+  a refused key writes nothing) — then a re-read verifies the writes landed. Writes follow a <b>verified
+  per-vertical matrix</b> (every organ's source read 2026-08-25): cooling cancellation is claims-only
+  because only consumer claims HAS the 14-day rule; CDD letters attach in the four organs whose notes
+  field is an array (claims, legal, insurance, veterinary); complaints exist in claims only. A read-only
+  vertical refuses with the verified reason — domain truth, not a todo. Approving a CDD letter does NOT
+  flip verification status — that stays the organ's own act. The brain
   probe reaches your machine only; nothing here leaves your browser.</div>
 
   <footer>fallbrain · the assembly: fallcore is the brain · fallrouter routes · didy conducts · fallcorp is
@@ -304,22 +307,26 @@ const arr = (v) => (v === undefined || v === null) ? [] : (Array.isArray(v) ? v 
 const REVIEW_WINDOW_MS = 30 * 86400000;
 
 /**
- * The verified map of organ databases — read from each organ's source, never guessed. The naming
- * convention SPLITS down the family: five use ".v1", five use "-v1" — an assumed convention would
- * have silently read half the estate as empty, so each entry here was verified against the shipped
- * page (2026-08-25). The snapshot lives in store "state", key "main"; clients ride in snap.clients.
+ * The verified map of organ databases — read from each organ's SHIPPED SOURCE, never guessed, every
+ * entry re-verified 2026-08-25. Two traps an assumed convention would have hit:
+ *   · the naming SPLITS: five organs use ".v1", five "-v1";
+ *   · the ARCHITECTURE splits: four organs keep clients in a snapshot (store "state", key "main",
+ *     snap.clients — mode "snapshot"), six keep them as per-record rows in a keyPath store whose
+ *     NAME varies (clients / candidates / patients / starters — mode "records"). A snapshot-only
+ *     reader silently reads the six as empty — the silent-empty defect class, caught by verifying.
+ * personStore names the row store for records mode; complaintsStore exists in claims only.
  */
 const ORGAN_DBS = Object.freeze({
-  claims: { db: 'fallclaimonboard.v1', complaintsStore: 'complaints' },
-  legal: { db: 'falllegalonboard.v1', complaintsStore: null },
-  accountancy: { db: 'fallbooksonboard.v1', complaintsStore: null },
-  veterinary: { db: 'fallvetonboard.v1', complaintsStore: null },
-  insurance: { db: 'fallinsuranceonboard.v1', complaintsStore: null },
-  estate: { db: 'fallestateonboard-v1', complaintsStore: null },
-  clinic: { db: 'fallcliniconboard-v1', complaintsStore: null },
-  hr: { db: 'fallhronboard-v1', complaintsStore: null },
-  recruitment: { db: 'fallrecruitonboard-v1', complaintsStore: null },
-  mortgage: { db: 'fallmortgageonboard-v1', complaintsStore: null },
+  claims: { db: 'fallclaimonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: 'complaints' },
+  legal: { db: 'falllegalonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: null },
+  insurance: { db: 'fallinsuranceonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: null },
+  veterinary: { db: 'fallvetonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: null },
+  accountancy: { db: 'fallbooksonboard.v1', mode: 'records', personStore: 'clients', complaintsStore: null },
+  estate: { db: 'fallestateonboard-v1', mode: 'records', personStore: 'clients', complaintsStore: null },
+  mortgage: { db: 'fallmortgageonboard-v1', mode: 'records', personStore: 'clients', complaintsStore: null },
+  recruitment: { db: 'fallrecruitonboard-v1', mode: 'records', personStore: 'candidates', complaintsStore: null },
+  clinic: { db: 'fallcliniconboard-v1', mode: 'records', personStore: 'patients', complaintsStore: null },
+  hr: { db: 'fallhronboard-v1', mode: 'records', personStore: 'starters', complaintsStore: null },
   sharedInvoices: { db: 'fallinvoice', store: 'invoices' },
 });
 
@@ -535,6 +542,42 @@ const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v)) ? v : null;
 const str = (v) => (typeof v === 'string' ? v : '');
 const arr = (v) => (Array.isArray(v) ? v : []);
 
+/**
+ * WHICH VERTICALS MAY BE WRITTEN, per action — verified against each organ's shipped source
+ * (2026-08-25), never extrapolated. The findings the matrix encodes:
+ *   · cooling machinery (cancelledAt/cancellationReason/the coolingOff register) exists ONLY in the
+ *     claims organ — not a gap: the 14-day cooling-off is a consumer-claims (CMR) rule the other
+ *     verticals genuinely do not have;
+ *   · client notes[] (an ARRAY the letter can join) exists in the four snapshot organs — claims,
+ *     legal, insurance, veterinary. In estate/mortgage notes is a STRING and in the rest it is
+ *     absent, so a note-append there would corrupt or invent shape;
+ *   · a complaints store exists in claims only.
+ * A vertical outside a list refuses BY NAME with the verified reason — read-only is a fact here,
+ * not a todo.
+ */
+const WRITE_CAPS = Object.freeze({
+  'process-cooling-cancellation': Object.freeze({
+    allowed: Object.freeze(['claims']),
+    whyNot: 'only the claims organ has cooling-off machinery — the 14-day cooling-off is a consumer-claims (CMR) rule; this vertical genuinely does not have those fields (verified 2026-08-25)',
+  }),
+  'draft-cdd-verification': Object.freeze({
+    allowed: Object.freeze(['claims', 'legal', 'insurance', 'veterinary']),
+    whyNot: 'this vertical\'s organ has no notes[] array on the client record (it is a string or absent — verified 2026-08-25); appending there would corrupt the organ\'s own shape, so it stays read-only',
+  }),
+  'draft-complaint-response': Object.freeze({
+    allowed: Object.freeze(['claims']),
+    whyNot: 'only the claims organ keeps a complaints store (verified 2026-08-25) — there is no complaint record here to attach a response to',
+  }),
+});
+
+/** May this action write into this vertical's organ? A refusal carries the verified reason. */
+function writeAllowed(action, vertical) {
+  const cap = WRITE_CAPS[str(action)];
+  if (!cap) return { ok: false, why: `no write-back law exists for "${str(action)}" — nothing is written` };
+  if (!cap.allowed.includes(str(vertical))) return { ok: false, why: `the ${str(vertical)} organ is read-only for ${str(action)}: ${cap.whyNot}` };
+  return { ok: true, why: `${str(vertical)} verified writable for ${str(action)}` };
+}
+
 /** Plan the organ writes for one decided key. Returns ops the page can execute mechanically. */
 function writebackPlan(entry, records, nowMs) {
   const e = obj(entry);
@@ -580,7 +623,7 @@ function writebackPlan(entry, records, nowMs) {
 
   return { ok: false, why: `no write-back law exists for "${str(e.action)}" — nothing is written (an improvised write into another tool's records is how data goes bad)` };
 }
-Object.assign(window.FALLBRAIN, { writebackPlan });
+Object.assign(window.FALLBRAIN, { writebackPlan, writeAllowed, WRITE_CAPS });
 })();
 /*__KERNEL_END__*/</script>
 <script>
@@ -847,9 +890,17 @@ async function readOrganRecords(vertical) {
   if (existing.has(spec.db)) {
     const db = await idbOpenExisting(spec.db);
     if (db) {
-      const snap = await idbGetKey(db, 'state', 'main');
-      records.clients = (snap && Array.isArray(snap.clients)) ? snap.clients : [];
-      sources.push(spec.db + ' (' + records.clients.length + ' client record(s))');
+      // the ARCHITECTURE split (verified): snapshot organs carry clients in state/main; the six
+      // per-record organs keep rows in a store whose NAME varies — reading the wrong way is how
+      // half the estate reads silently empty.
+      if (spec.mode === 'records') {
+        records.clients = await idbGetAll(db, spec.personStore);
+        sources.push(spec.db + '/' + spec.personStore + ' (' + records.clients.length + ' record(s))');
+      } else {
+        const snap = await idbGetKey(db, 'state', 'main');
+        records.clients = (snap && Array.isArray(snap.clients)) ? snap.clients : [];
+        sources.push(spec.db + ' (' + records.clients.length + ' client record(s))');
+      }
       if (spec.complaintsStore) { records.complaints = await idbGetAll(db, spec.complaintsStore); sources.push('· ' + records.complaints.length + ' complaint(s)'); }
       db.close();
     }
@@ -884,7 +935,9 @@ function idbPutRec(db, store, val, key) {
 }
 async function executeWriteback(entry) {
   const vertical = $('coVert').value;
-  if (vertical !== 'claims') return { ok: false, why: 'write-back is verified against the CLAIMS organ only so far — ' + vertical + ' stays read-only until its shapes are verified the same way' };
+  // the verified write matrix decides, per action × vertical — every refusal carries its reason
+  const allow = K.writeAllowed(entry.action, vertical);
+  if (!allow.ok) return allow;
   const rd = await readOrganRecords(vertical);
   if (!rd.ok) return rd;
   const plan = K.writebackPlan(entry, rd.records, Date.now());

@@ -1,7 +1,7 @@
 // fallbrain · writeback.test.mjs — the write-back law: approved keys write in organ shapes, all else refuses.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { writebackPlan } from './writeback.mjs';
+import { writebackPlan, writeAllowed, WRITE_CAPS } from './writeback.mjs';
 
 const NOW = 1_756_200_000_000;
 const DAY = 86400000;
@@ -97,6 +97,33 @@ test('HOSTILE SHAPES — an array/function CARRYING key props is not a key; same
   assert.match(writebackPlan(fnKey, { clients: [CL({ cooling: EXPIRED })] }, NOW).why, /needs the inbox entry/);
   const fnRecs = function () {}; fnRecs.clients = [CL({ cooling: EXPIRED })];
   assert.match(writebackPlan(KEY(), fnRecs, NOW).why, /needs the organ records/);
+});
+
+test('WRITE_CAPS — the verified per-vertical matrix, and every refusal carries the verified reason', () => {
+  // cooling: claims only — a DOMAIN truth (CMR), not a todo
+  assert.equal(writeAllowed('process-cooling-cancellation', 'claims').ok, true);
+  for (const v of ['legal', 'estate', 'clinic', 'hr', 'mortgage', 'recruitment', 'insurance', 'veterinary', 'accountancy']) {
+    const r = writeAllowed('process-cooling-cancellation', v);
+    assert.equal(r.ok, false, v);
+    assert.match(r.why, /consumer-claims \(CMR\)/, 'the refusal explains the domain truth');
+    assert.match(r.why, /verified 2026-08-25/, 'and carries its verification date');
+  }
+  // cdd letter → notes[]: the four snapshot organs with a notes ARRAY
+  for (const v of ['claims', 'legal', 'insurance', 'veterinary']) assert.equal(writeAllowed('draft-cdd-verification', v).ok, true, v);
+  for (const v of ['estate', 'mortgage', 'clinic', 'hr', 'recruitment', 'accountancy']) {
+    const r = writeAllowed('draft-cdd-verification', v);
+    assert.equal(r.ok, false, v);
+    assert.match(r.why, /corrupt the organ/, 'a string/absent notes field must not be appended to');
+  }
+  // complaints: claims only
+  assert.equal(writeAllowed('draft-complaint-response', 'claims').ok, true);
+  assert.match(writeAllowed('draft-complaint-response', 'legal').why, /complaints store/);
+  // unknown action refuses by name; unknown vertical refuses (not in any allowed list)
+  assert.match(writeAllowed('transfer-funds', 'claims').why, /no write-back law/);
+  assert.equal(writeAllowed('draft-cdd-verification', 'space-mining').ok, false);
+  assert.equal(writeAllowed('draft-cdd-verification', null).ok, false);
+  // the matrix itself is frozen — a caps table that can be edited at runtime is no table
+  assert.ok(Object.isFrozen(WRITE_CAPS) && Object.isFrozen(WRITE_CAPS['draft-cdd-verification'].allowed));
 });
 
 test('FUZZ — total on garbage', () => {

@@ -80,13 +80,26 @@ test('GARBAGE INSIDE the arrays is skipped, not crashed on', () => {
   assert.equal(r.invoicesUnpaid, 1);
 });
 
-test('ORGAN_DBS — the verified map covers all ten verticals and records the naming SPLIT', () => {
+test('ORGAN_DBS — the verified map covers all ten verticals and records BOTH splits', () => {
   const verts = ['claims', 'legal', 'accountancy', 'estate', 'recruitment', 'clinic', 'hr', 'insurance', 'mortgage', 'veterinary'];
   for (const v of verts) assert.ok(ORGAN_DBS[v] && ORGAN_DBS[v].db, v + ' has a verified DB name');
   const dotV1 = verts.filter((v) => ORGAN_DBS[v].db.endsWith('.v1'));
   const dashV1 = verts.filter((v) => ORGAN_DBS[v].db.endsWith('-v1'));
   assert.equal(dotV1.length, 5, 'five organs use ".v1"');
   assert.equal(dashV1.length, 5, 'five use "-v1" — the split an assumed convention would have missed');
+  // the ARCHITECTURE split (verified 2026-08-25): 4 snapshot organs, 6 per-record organs
+  const snap = verts.filter((v) => ORGAN_DBS[v].mode === 'snapshot');
+  const recs = verts.filter((v) => ORGAN_DBS[v].mode === 'records');
+  assert.deepEqual(snap.sort(), ['claims', 'insurance', 'legal', 'veterinary'], 'the four snapshot organs');
+  assert.equal(recs.length, 6, 'six per-record organs — a snapshot-only reader reads them silently EMPTY');
+  for (const v of snap) assert.equal(ORGAN_DBS[v].personStore, null, v + ': snapshot mode carries clients in snap.clients');
+  for (const v of recs) assert.ok(ORGAN_DBS[v].personStore, v + ': records mode must NAME its row store');
+  // the person-store names VARY — the second thing extrapolation would have missed
+  assert.equal(ORGAN_DBS.recruitment.personStore, 'candidates');
+  assert.equal(ORGAN_DBS.clinic.personStore, 'patients');
+  assert.equal(ORGAN_DBS.hr.personStore, 'starters');
+  assert.equal(ORGAN_DBS.accountancy.personStore, 'clients');
   assert.equal(ORGAN_DBS.claims.complaintsStore, 'complaints', 'claims carries the complaints register');
+  assert.ok(verts.every((v) => v === 'claims' || !ORGAN_DBS[v].complaintsStore), 'complaints exist in claims ONLY');
   assert.equal(ORGAN_DBS.sharedInvoices.db, 'fallinvoice');
 });

@@ -37,7 +37,7 @@ Object.assign(window.FALLBRAIN, { enqueue, turnKey, pending });
 })();
 (function(){
 ${strip('writeback.mjs').trim()}
-Object.assign(window.FALLBRAIN, { writebackPlan });
+Object.assign(window.FALLBRAIN, { writebackPlan, writeAllowed, WRITE_CAPS });
 })();
 /*__KERNEL_END__*/`;
 

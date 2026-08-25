@@ -19,6 +19,42 @@ const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v)) ? v : null;
 const str = (v) => (typeof v === 'string' ? v : '');
 const arr = (v) => (Array.isArray(v) ? v : []);
 
+/**
+ * WHICH VERTICALS MAY BE WRITTEN, per action — verified against each organ's shipped source
+ * (2026-08-25), never extrapolated. The findings the matrix encodes:
+ *   · cooling machinery (cancelledAt/cancellationReason/the coolingOff register) exists ONLY in the
+ *     claims organ — not a gap: the 14-day cooling-off is a consumer-claims (CMR) rule the other
+ *     verticals genuinely do not have;
+ *   · client notes[] (an ARRAY the letter can join) exists in the four snapshot organs — claims,
+ *     legal, insurance, veterinary. In estate/mortgage notes is a STRING and in the rest it is
+ *     absent, so a note-append there would corrupt or invent shape;
+ *   · a complaints store exists in claims only.
+ * A vertical outside a list refuses BY NAME with the verified reason — read-only is a fact here,
+ * not a todo.
+ */
+export const WRITE_CAPS = Object.freeze({
+  'process-cooling-cancellation': Object.freeze({
+    allowed: Object.freeze(['claims']),
+    whyNot: 'only the claims organ has cooling-off machinery — the 14-day cooling-off is a consumer-claims (CMR) rule; this vertical genuinely does not have those fields (verified 2026-08-25)',
+  }),
+  'draft-cdd-verification': Object.freeze({
+    allowed: Object.freeze(['claims', 'legal', 'insurance', 'veterinary']),
+    whyNot: 'this vertical\'s organ has no notes[] array on the client record (it is a string or absent — verified 2026-08-25); appending there would corrupt the organ\'s own shape, so it stays read-only',
+  }),
+  'draft-complaint-response': Object.freeze({
+    allowed: Object.freeze(['claims']),
+    whyNot: 'only the claims organ keeps a complaints store (verified 2026-08-25) — there is no complaint record here to attach a response to',
+  }),
+});
+
+/** May this action write into this vertical's organ? A refusal carries the verified reason. */
+export function writeAllowed(action, vertical) {
+  const cap = WRITE_CAPS[str(action)];
+  if (!cap) return { ok: false, why: `no write-back law exists for "${str(action)}" — nothing is written` };
+  if (!cap.allowed.includes(str(vertical))) return { ok: false, why: `the ${str(vertical)} organ is read-only for ${str(action)}: ${cap.whyNot}` };
+  return { ok: true, why: `${str(vertical)} verified writable for ${str(action)}` };
+}
+
 /** Plan the organ writes for one decided key. Returns ops the page can execute mechanically. */
 export function writebackPlan(entry, records, nowMs) {
   const e = obj(entry);
