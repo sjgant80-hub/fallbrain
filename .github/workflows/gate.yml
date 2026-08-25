@@ -47,6 +47,15 @@ jobs:
             --baseline witness.baseline.json \
             --test node --test inbox.test.mjs
 
+      - name: the write-back law (approved keys → organ shapes) against its examples
+        run: node --test writeback.test.mjs
+
+      - name: witness — try to break the write-back law (must be CLEAN)
+        run: |
+          node /tmp/witness/witness.mjs mutate writeback.mjs \
+            --timeout 60000 --cap 800 \
+            --test node --test writeback.test.mjs
+
       - name: the live page still carries the gated law
         run: |
           cp index.html /tmp/shipped.html

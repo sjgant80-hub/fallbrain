@@ -35,6 +35,10 @@ Object.assign(window.FALLBRAIN, { draftBrief, acceptDraft, DRAFT_SYSTEM });
 ${strip('inbox.mjs').trim()}
 Object.assign(window.FALLBRAIN, { enqueue, turnKey, pending });
 })();
+(function(){
+${strip('writeback.mjs').trim()}
+Object.assign(window.FALLBRAIN, { writebackPlan });
+})();
 /*__KERNEL_END__*/`;
 
 const htmlPath = join(here, 'index.html');

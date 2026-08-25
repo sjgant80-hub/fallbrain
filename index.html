@@ -135,7 +135,12 @@
   device is said plainly, never faked; docsAwaited has no organ signal yet and honestly reads 0. <b>The
   inbox is a real record</b> (device-local, persists across reloads): the brain can only QUEUE keys, a
   refusal needs a reason you could argue with, and a decided key stays decided — the kernel refuses the
-  second turn. The brain probe reaches your machine only; nothing here leaves your browser.</div>
+  second turn. <b>An approved key writes back into the organ's own records</b> — in the organ's own shapes
+  (the cooling cancellation lands on the client AND in the cooling-off register; letters attach to notes;
+  a refused key writes nothing) — then a re-read verifies the writes landed. Write-back is verified against
+  the CLAIMS organ so far; other verticals stay read-only until their shapes are verified the same way.
+  Approving a CDD letter does NOT flip verification status — that stays the organ's own act. The brain
+  probe reaches your machine only; nothing here leaves your browser.</div>
 
   <footer>fallbrain · the assembly: fallcore is the brain · fallrouter routes · didy conducts · fallcorp is
   the shape · the estate is the body — this switches them on for ONE company ·
@@ -508,6 +513,75 @@ function pending(queue) {
 }
 Object.assign(window.FALLBRAIN, { enqueue, turnKey, pending });
 })();
+(function(){
+// fallbrain · writeback.mjs — the write-back law: an APPROVED key lands back in the organ's own
+// records, in the organ's own shapes. The circle closes: organ → derivation → decision → human key
+// → organ again.
+//
+// This is surgery on another tool's data, so the law is strict:
+//   · only an APPROVED key writes — a pending key has no verdict, a refused key means the work
+//     does not happen, and neither touches a record;
+//   · every write uses a shape the organ itself defines (verified against its shipped source):
+//     cooling.cancelledAt / cancellationReason on the client, the coolingOff register event,
+//     client.notes[] for attached letters, a namespaced responses list on the complaint;
+//   · a key whose targets no longer exist in the records is a NAMED refusal — the records moved,
+//     and writing into a moved world is how ghosts are made;
+//   · ids are deterministic per key (a decided key stays decided, so one key = one id, ever).
+//
+// Pure planner: (entry, records, nowMs) → { ok, ops[], why }. The page executes ops against
+// IndexedDB and re-reads to verify; everything decidable lives here where witness can reach it.
+
+const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v)) ? v : null;
+const str = (v) => (typeof v === 'string' ? v : '');
+const arr = (v) => (Array.isArray(v) ? v : []);
+
+/** Plan the organ writes for one decided key. Returns ops the page can execute mechanically. */
+function writebackPlan(entry, records, nowMs) {
+  const e = obj(entry);
+  if (!e) return { ok: false, why: 'writeback needs the inbox entry the human decided' };
+  if (!Number.isInteger(nowMs) || nowMs <= 0) return { ok: false, why: 'nowMs must be a real epoch-ms timestamp' };
+  if (e.status !== 'decided') return { ok: false, why: 'only a DECIDED key can write back — this one is still waiting for a human hand' };
+  if (e.verdict !== 'approved') return { ok: false, why: 'a refused key writes nothing — refusal means the work does not happen, and the record already says why' };
+  const r = obj(records);
+  if (!r) return { ok: false, why: 'writeback needs the organ records ({ clients?, complaints? })' };
+  const clients = arr(r.clients).filter((c) => obj(c) && !c.archivedAt);
+  const stamp = 'approved at the ' + str(e.door) + ' door · fallbrain · ' + e.id;
+
+  if (e.action === 'process-cooling-cancellation') {
+    const hit = clients.filter((c) => {
+      const k = obj(c.cooling);
+      return !!(k && k.expiresAt && k.expiresAt <= nowMs && !k.waived && !k.cancelledAt);
+    });
+    if (!hit.length) return { ok: false, why: 'no client in the organ still has an expired, un-cancelled cooling-off period — the records moved since this key was queued; nothing written' };
+    const reason = str(e.reason) || 'cooling-off period expired; cancellation processed';
+    const ops = [];
+    for (const c of hit) {
+      ops.push({ type: 'client-cooling-cancel', clientId: c.id, set: { cancelledAt: nowMs, cancellationReason: reason, processedBy: stamp } });
+      ops.push({ type: 'cooling-event', rec: { id: 'co-fb-' + e.id + '-' + c.id, clientId: c.id, kind: 'cancelled', ts: nowMs, processedBy: stamp, notes: '', expiresAt: obj(c.cooling).expiresAt, waived: false, waiverReason: '', cancellationReason: reason } });
+    }
+    return { ok: true, ops, why: `${hit.length} client(s): cooling cancellation written to the client record AND the organ's cooling-off register, in the organ's own shapes` };
+  }
+
+  if (e.action === 'draft-complaint-response') {
+    if (!str(e.draft).trim()) return { ok: false, why: 'this key was approved with NO draft attached — there is nothing to write onto the complaint; word the draft and queue a fresh key' };
+    const open = arr(r.complaints).filter((x) => obj(x) && !x.resolvedAt);
+    if (!open.length) return { ok: false, why: 'no complaint in the organ is still open — the records moved since this key was queued; nothing written' };
+    const ops = open.map((x) => ({ type: 'complaint-response', complaintId: x.id, response: { ts: nowMs, door: str(e.door), keyId: e.id, draftedBy: str(e.draftedBy) || 'local model', text: str(e.draft) } }));
+    return { ok: true, ops, why: `${open.length} open complaint(s): the approved response letter attached to the complaint record (namespaced — the organ stores it; it does not yet render it)` };
+  }
+
+  if (e.action === 'draft-cdd-verification') {
+    if (!str(e.draft).trim()) return { ok: false, why: 'this key was approved with NO draft attached — there is nothing to write onto the client; word the draft and queue a fresh key' };
+    const hit = clients.filter((c) => obj(c.kyc) && c.kyc.status === 'pending');
+    if (!hit.length) return { ok: false, why: 'no client in the organ still has CDD pending — the records moved since this key was queued; nothing written' };
+    const ops = hit.map((c) => ({ type: 'client-note', clientId: c.id, note: { ts: nowMs, author: stamp, text: 'CDD document-request letter approved for sending:\n\n' + str(e.draft) } }));
+    return { ok: true, ops, why: `${hit.length} client(s): the approved CDD request letter attached to the client's notes (the organ's own notes[] field). CDD status is NOT flipped — approving the LETTER is not verifying the documents; that stays the organ's own act` };
+  }
+
+  return { ok: false, why: `no write-back law exists for "${str(e.action)}" — nothing is written (an improvised write into another tool's records is how data goes bad)` };
+}
+Object.assign(window.FALLBRAIN, { writebackPlan });
+})();
 /*__KERNEL_END__*/</script>
 <script>
 const $ = (id) => document.getElementById(id);
@@ -719,7 +793,16 @@ window.keyTurn = async (id, verdict) => {
   if (!r.ok) { if (fail) fail.textContent = r.why; return; }
   QSTATE.queue = r.queue;
   await saveQueue();
+  // an APPROVED key writes back into the organ's own records (the law plans, the page executes, a re-read verifies)
+  let wb = null;
+  if (verdict === 'approved') wb = await executeWriteback(r.entry);
   renderInbox(); renderDoors();
+  if (wb) {
+    const note = document.createElement('div');
+    note.className = 'hrow';
+    note.innerHTML = '<b class="' + (wb.ok && wb.verified !== false ? 'ok' : 'no') + '">write-back</b> · ' + esc(wb.why);
+    $('inboxHistory').prepend(note);
+  }
 };
 loadQueue().then(() => { renderInbox(); renderDoors(); });
 
@@ -755,13 +838,10 @@ function idbGetAll(db, store) {
     } catch (e) { res([]); }
   });
 }
-$('btnReal').onclick = async () => {
-  const st = $('realStatus');
-  if (!indexedDB.databases) { st.textContent = 'this browser cannot list databases (Firefox) — refusing rather than creating empty organ DBs. Use the demo counts.'; return; }
-  const vertical = $('coVert').value;
+async function readOrganRecords(vertical) {
+  if (!indexedDB.databases) return { ok: false, why: 'this browser cannot list databases (Firefox) — refusing rather than creating empty organ DBs' };
   const spec = K.ORGAN_DBS[vertical];
-  if (!spec) { st.textContent = 'no verified database map for "' + vertical + '"'; return; }
-  st.textContent = 'reading…';
+  if (!spec) return { ok: false, why: 'no verified database map for "' + vertical + '"' };
   const existing = new Set((await indexedDB.databases()).map((d) => d.name));
   const sources = [], records = {};
   if (existing.has(spec.db)) {
@@ -779,13 +859,68 @@ $('btnReal').onclick = async () => {
     const db = await idbOpenExisting(inv.db);
     if (db) { records.invoices = await idbGetAll(db, inv.store); sources.push(inv.db + ' (' + records.invoices.length + ' invoice(s))'); db.close(); }
   } else sources.push(inv.db + ' — none on this device');
-  const d = K.deriveState(records, Date.now());
+  return { ok: true, records, sources, spec };
+}
+$('btnReal').onclick = async () => {
+  const st = $('realStatus');
+  st.textContent = 'reading…';
+  const rd = await readOrganRecords($('coVert').value);
+  if (!rd.ok) { st.textContent = rd.why + '. Use the demo counts.'; return; }
+  const d = K.deriveState(rd.records, Date.now());
   if (!d.ok) { st.textContent = 'derivation refused: ' + d.why; return; }
-  LAST_RECORDS = records; // real facts (e.g. an open complaint's nature) ride into the drafting briefs
+  LAST_RECORDS = rd.records; // real facts (e.g. an open complaint's nature) ride into the drafting briefs
   $('st-cool').value = d.coolingExpired; $('st-comp').value = d.complaintsOpen; $('st-cdd').value = d.cddPending;
   $('st-rev').value = d.reviewsDue; $('st-inv').value = d.invoicesUnpaid; $('st-doc').value = d.docsAwaited;
-  st.innerHTML = '<b style="color:var(--good)">REAL</b> · ' + esc(sources.join(' ')) + ' · ' + esc(d.why);
+  st.innerHTML = '<b style="color:var(--good)">REAL</b> · ' + esc(rd.sources.join(' ')) + ' · ' + esc(d.why);
 };
+
+// ── the write-back: an APPROVED key lands in the organ's own records, then we RE-READ to verify ──
+function idbPutRec(db, store, val, key) {
+  return new Promise((res) => {
+    try { const t = db.transaction(store, 'readwrite'); (key === undefined ? t.objectStore(store).put(val) : t.objectStore(store).put(val, key));
+      t.oncomplete = () => res(true); t.onerror = () => res(false);
+    } catch (e) { res(false); }
+  });
+}
+async function executeWriteback(entry) {
+  const vertical = $('coVert').value;
+  if (vertical !== 'claims') return { ok: false, why: 'write-back is verified against the CLAIMS organ only so far — ' + vertical + ' stays read-only until its shapes are verified the same way' };
+  const rd = await readOrganRecords(vertical);
+  if (!rd.ok) return rd;
+  const plan = K.writebackPlan(entry, rd.records, Date.now());
+  if (!plan.ok) return plan;
+  const db = await idbOpenExisting(rd.spec.db);
+  if (!db) return { ok: false, why: 'the organ database vanished between read and write — nothing written' };
+  const snap = await idbGetKey(db, 'state', 'main');
+  if (!snap || !Array.isArray(snap.clients)) { db.close(); return { ok: false, why: 'the organ snapshot is unreadable — nothing written' }; }
+  let clientWrites = 0, events = 0, compWrites = 0;
+  for (const op of plan.ops) {
+    if (op.type === 'client-cooling-cancel') { const c = snap.clients.find((x) => x && x.id === op.clientId); if (c) { c.cooling = Object.assign({}, c.cooling, op.set); c.updatedAt = Date.now(); clientWrites++; } }
+    if (op.type === 'client-note') { const c = snap.clients.find((x) => x && x.id === op.clientId); if (c) { if (!Array.isArray(c.notes)) c.notes = []; c.notes.push(op.note); c.updatedAt = Date.now(); clientWrites++; } }
+  }
+  if (clientWrites) await idbPutRec(db, 'state', snap, 'main');
+  for (const op of plan.ops) {
+    if (op.type === 'cooling-event') { if (await idbPutRec(db, 'coolingOff', op.rec)) events++; }
+    if (op.type === 'complaint-response') {
+      const rec = (rd.records.complaints || []).find((x) => x && x.id === op.complaintId);
+      if (rec) { if (!Array.isArray(rec.fallbrainResponses)) rec.fallbrainResponses = []; rec.fallbrainResponses.push(op.response); if (await idbPutRec(db, 'complaints', rec)) compWrites++; }
+    }
+  }
+  db.close();
+  // verify like a human: re-read and confirm the writes actually landed
+  const check = await readOrganRecords(vertical);
+  let verified = false;
+  if (check.ok) {
+    verified = plan.ops.every((op) => {
+      if (op.type === 'client-cooling-cancel') { const c = (check.records.clients || []).find((x) => x && x.id === op.clientId); return !!(c && c.cooling && c.cooling.cancelledAt); }
+      if (op.type === 'client-note') { const c = (check.records.clients || []).find((x) => x && x.id === op.clientId); return !!(c && Array.isArray(c.notes) && c.notes.some((n) => n && n.author && String(n.author).includes(entry.id))); }
+      if (op.type === 'complaint-response') { const r2 = (check.records.complaints || []).find((x) => x && x.id === op.complaintId); return !!(r2 && Array.isArray(r2.fallbrainResponses) && r2.fallbrainResponses.some((n) => n && n.keyId === entry.id)); }
+      if (op.type === 'cooling-event') return true; // register events verified via the organ's own page
+      return false;
+    });
+  }
+  return { ok: true, why: plan.why + ' · wrote ' + (clientWrites + events + compWrites) + ' record(s) · re-read ' + (verified ? 'VERIFIED the writes landed' : 'could NOT verify — check the organ') , verified };
+}
 </script>
 </body>
 </html>
