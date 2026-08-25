@@ -318,18 +318,18 @@ const REVIEW_WINDOW_MS = 30 * 86400000;
  * personStore names the row store for records mode; complaintsStore exists in claims only.
  */
 const ORGAN_DBS = Object.freeze({
-  // paper entries exist ONLY where the paper organ's work-unit verified compatible (2026-08-25):
-  // claims=cases, legal=matters (DB naming diverges AGAIN: fallclaimpaper-v1 but falllegalpaper-db).
-  // mortgage (cases) + insurance (policies) HAVE work-units but their lifecycle vocab ('dip-obtained',
-  // 'in-force') and UI dispatch are unverified — no entry until verified, honest 0 over invention.
-  // The other six paper organs are client-only (no work-unit store at all) — nothing to signal from.
+  // paper entries exist ONLY where the paper organ's work-unit verified (2026-08-25): claims=cases,
+  // legal=matters, mortgage=cases (lifecycle enquiry→dip-obtained→offered→completed), insurance=
+  // policies (draft→in-force, terminal lapsed/cancelled). DB naming spans THREE variants
+  // (fallclaimpaper-v1 · fallmortgagepaper-v1 · falllegalpaper-db). The other six paper organs are
+  // client-only (no work-unit store at all) — nothing to signal from, and their absence is tested.
   claims: { db: 'fallclaimonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: 'complaints', paper: Object.freeze({ db: 'fallclaimpaper-v1', casesStore: 'cases' }) },
   legal: { db: 'falllegalonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: null, paper: Object.freeze({ db: 'falllegalpaper-db', casesStore: 'matters' }) },
-  insurance: { db: 'fallinsuranceonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: null },
+  insurance: { db: 'fallinsuranceonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: null, paper: Object.freeze({ db: 'fallinsurancepaper-v1', casesStore: 'policies' }) },
   veterinary: { db: 'fallvetonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: null },
   accountancy: { db: 'fallbooksonboard.v1', mode: 'records', personStore: 'clients', complaintsStore: null },
   estate: { db: 'fallestateonboard-v1', mode: 'records', personStore: 'clients', complaintsStore: null },
-  mortgage: { db: 'fallmortgageonboard-v1', mode: 'records', personStore: 'clients', complaintsStore: null },
+  mortgage: { db: 'fallmortgageonboard-v1', mode: 'records', personStore: 'clients', complaintsStore: null, paper: Object.freeze({ db: 'fallmortgagepaper-v1', casesStore: 'cases' }) },
   recruitment: { db: 'fallrecruitonboard-v1', mode: 'records', personStore: 'candidates', complaintsStore: null },
   clinic: { db: 'fallcliniconboard-v1', mode: 'records', personStore: 'patients', complaintsStore: null },
   hr: { db: 'fallhronboard-v1', mode: 'records', personStore: 'starters', complaintsStore: null },
@@ -365,9 +365,12 @@ function deriveState(records, nowMs) {
   }).length;
   const complaintsOpen = complaints.filter((x) => obj(x) && !x.resolvedAt).length;
   const invoicesUnpaid = invoices.filter((x) => obj(x) && x.status === 'sent').length;
-  // the paper organ's signal: awaited documents on cases that are still live (a settled case waits on nothing)
+  // the paper organs' signal: awaited documents on work-units that are still LIVE. The terminal
+  // words are VERIFIED per organ (2026-08-25): settled/closed (claims, legal), completed (mortgage),
+  // lapsed/cancelled (insurance) — a finished work-unit waits on nothing.
+  const TERMINAL = ['settled', 'closed', 'completed', 'lapsed', 'cancelled'];
   const docsAwaited = cases.reduce((n, k) => {
-    if (!obj(k) || k.status === 'settled' || k.status === 'closed') return n;
+    if (!obj(k) || TERMINAL.includes(k.status)) return n;
     return n + (Array.isArray(k.awaitedDocuments) ? k.awaitedDocuments.filter((a) => obj(a)).length : 0);
   }, 0);
 

@@ -60,18 +60,26 @@ test('THE DERIVED STATE FEEDS THE LOOP — shape matches nextAction\'s fields', 
 });
 
 test('DOCS AWAITED — the paper organ\'s signal: awaited items on LIVE cases only, junk skipped', () => {
+  const A = (t) => [{ id: 'a_' + t, title: t }];
   const cases = [
     { id: 'cs1', status: 'active', awaitedDocuments: [{ id: 'a1', title: 'GP records' }, { id: 'a2', title: 'Engineer’s report' }] },
-    { id: 'cs2', status: 'settled', awaitedDocuments: [{ id: 'a3', title: 'never counted — a settled case waits on nothing' }] },
-    { id: 'cs3', status: 'closed', awaitedDocuments: [{ id: 'a4', title: 'nor a closed one' }] },
+    { id: 'cs2', status: 'settled', awaitedDocuments: A('never counted — a settled case waits on nothing') },
+    { id: 'cs3', status: 'closed', awaitedDocuments: A('nor a closed one') },
     { id: 'cs4', status: 'active' },                                    // no field at all — fine
     { id: 'cs5', status: 'active', awaitedDocuments: 'GP records' },    // STRING shape — contributes 0, never crashes
     { id: 'cs6', status: 'active', awaitedDocuments: [null, 'x', { id: 'a5', title: 'medical notes' }] }, // junk inside skipped
+    // the OTHER organs' verified terminals — mortgage 'completed', insurance 'lapsed'/'cancelled'
+    { id: 'cs7', status: 'completed', awaitedDocuments: A('a completed mortgage case waits on nothing') },
+    { id: 'cs8', status: 'lapsed', awaitedDocuments: A('a lapsed policy waits on nothing') },
+    { id: 'cs9', status: 'cancelled', awaitedDocuments: A('nor a cancelled one') },
+    // and the LIVE statuses of those organs still count
+    { id: 'cs10', status: 'dip-obtained', awaitedDocuments: A('proof of deposit') },   // mortgage mid-pipeline
+    { id: 'cs11', status: 'in-force', awaitedDocuments: A('signed proposal form') },   // insurance live policy
     null, 'garbage',
   ];
   const r = deriveState({ cases }, NOW);
   assert.equal(r.ok, true);
-  assert.equal(r.docsAwaited, 3, '2 on cs1 + 1 real one on cs6');
+  assert.equal(r.docsAwaited, 5, '2 on cs1 + 1 on cs6 + dip-obtained + in-force; every terminal excluded');
   assert.equal(r.counts.cases, cases.length);
   assert.ok(!/docsAwaited reads 0/.test(r.why), 'the absent-cases caveat disappears when cases exist');
   assert.match(deriveState({ cases: 'many' }, NOW).why, /cases must be an array/);
@@ -121,11 +129,13 @@ test('ORGAN_DBS — the verified map covers all ten verticals and records BOTH s
   assert.ok(verts.every((v) => v === 'claims' || !ORGAN_DBS[v].complaintsStore), 'complaints exist in claims ONLY');
   assert.equal(ORGAN_DBS.claims.paper.db, 'fallclaimpaper-v1', 'the paper organ carrying the docsAwaited signal');
   assert.equal(ORGAN_DBS.claims.paper.casesStore, 'cases');
-  // legal's paper organ verified 2026-08-25 — and the DB naming diverges a THIRD way
+  // the FOUR verified paper organs — each work-unit store named, the third DB variant pinned
   assert.equal(ORGAN_DBS.legal.paper.db, 'falllegalpaper-db', 'not -v1, not .v1: a third naming variant');
   assert.equal(ORGAN_DBS.legal.paper.casesStore, 'matters', 'legal calls its work-units matters');
-  // mortgage/insurance have work-units but UNVERIFIED lifecycles — no paper entry is deliberate
-  assert.ok(!ORGAN_DBS.mortgage.paper && !ORGAN_DBS.insurance.paper, 'unverified lifecycles stay honest-0, never guessed');
+  assert.equal(ORGAN_DBS.mortgage.paper.db, 'fallmortgagepaper-v1');
+  assert.equal(ORGAN_DBS.mortgage.paper.casesStore, 'cases');
+  assert.equal(ORGAN_DBS.insurance.paper.db, 'fallinsurancepaper-v1');
+  assert.equal(ORGAN_DBS.insurance.paper.casesStore, 'policies', 'insurance calls its work-units policies');
   for (const v of ['accountancy', 'estate', 'recruitment', 'clinic', 'hr', 'veterinary']) {
     assert.ok(!ORGAN_DBS[v].paper, v + ': its paper organ is client-only (no work-unit store) — nothing to signal from');
   }
