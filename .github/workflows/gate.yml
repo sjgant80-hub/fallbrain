@@ -1,0 +1,29 @@
+name: proof-of-play
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+
+      - name: the law against its falsifiable examples
+        run: node --test brain.test.mjs
+
+      # ⚑ Pinned. An unpinned gate is a gate somebody else can change.
+      - name: witness — try to break the law (must be CLEAN)
+        run: |
+          git clone --depth 1 --branch v0.6 https://github.com/sjgant80-hub/witness.git /tmp/witness
+          node /tmp/witness/witness.mjs mutate brain.mjs \
+            --timeout 60000 --cap 800 \
+            --test node --test brain.test.mjs
+
+      - name: the live page still carries the gated law
+        run: |
+          cp index.html /tmp/shipped.html
+          node build-page.mjs
+          diff -q /tmp/shipped.html index.html || {
+            echo "::error::index.html has drifted from brain.mjs — run node build-page.mjs and commit."
+            exit 1
+          }

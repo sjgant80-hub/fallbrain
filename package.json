@@ -1,0 +1,9 @@
+{
+  "name": "fallbrain",
+  "version": "0.1.0",
+  "description": "Assemble a company from the estate's live organs, boot the brain on a local model, run the governed loop. Witness-gated law: statutory clocks first, money behind a human door, nothing beyond its grant.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": { "test": "node --test brain.test.mjs", "organs": "node gen-organs.mjs", "page": "node build-page.mjs" },
+  "engines": { "node": ">=20" }
+}

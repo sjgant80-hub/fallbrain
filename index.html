@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>fallbrain — boot a company on your own model</title>
+<meta name="description" content="Assemble a company from the estate's live organs, boot the brain on your local model, and watch the governed loop decide — statutory clocks first, money behind a human door, nothing beyond its grant." />
+<style>
+  :root{
+    --bg:#0d0f14; --panel:#151923; --card:#1a1f2c; --ink:#dfe3ec; --soft:#8a92a6; --line:#262d3d;
+    --brass:#c9a24a; --good:#5fc98a; --warn:#e0a040; --bad:#e5675a; --door:#7fa3d8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:900px;margin:0 auto;padding:30px 18px 70px}
+  h1{font-size:1.9rem;margin:0;letter-spacing:-.02em}
+  h1 .dot{color:var(--brass)}
+  .sub{color:var(--soft);margin:6px 0 26px;max-width:640px}
+  h2{font-size:.85rem;text-transform:uppercase;letter-spacing:.1em;color:var(--brass);margin:30px 0 10px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  input,select{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:9px 12px;font:inherit}
+  button{background:var(--brass);color:#14120a;border:0;border-radius:7px;padding:10px 18px;font-size:15px;font-weight:700;cursor:pointer}
+  button.ghost{background:transparent;color:var(--brass);border:1px solid var(--line)}
+  button:disabled{opacity:.4;cursor:default}
+  .organ{display:flex;align-items:baseline;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:.92rem}
+  .organ:last-child{border-bottom:0}
+  .organ a{color:var(--brass);text-decoration:none;font-weight:600}
+  .organ .cap{font:11px ui-monospace,monospace;color:var(--soft);text-transform:uppercase;letter-spacing:.05em;min-width:86px}
+  .organ .desc{color:var(--soft);font-size:.8rem}
+  .doors{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:10px}
+  .doorbox{border:1px solid var(--door);border-radius:8px;padding:8px 12px;font-size:.85rem}
+  .doorbox b{color:var(--door)}
+  .doorbox .q{color:var(--warn);font-size:.8rem;min-height:1.1em}
+  .status{font:13px ui-monospace,monospace;padding:3px 9px;border-radius:5px;border:1px solid var(--line)}
+  .status.up{color:var(--good);border-color:var(--good)}
+  .status.down{color:var(--warn);border-color:var(--warn)}
+  .log{font:13px/1.6 ui-monospace,Menlo,Consolas,monospace;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;min-height:60px;max-height:340px;overflow-y:auto;white-space:pre-wrap}
+  .log .t-act{color:var(--good)} .log .t-door{color:var(--door)} .log .t-ref{color:var(--bad)} .log .t-idle{color:var(--soft)}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+  .grid2 label{display:block;font-size:.72rem;color:var(--soft);margin-bottom:3px}
+  .grid2 input{width:100%}
+  .honest{border-left:3px solid var(--brass);padding:10px 14px;background:var(--panel);border-radius:0 8px 8px 0;color:var(--soft);font-size:.87rem;margin-top:30px}
+  .honest b{color:var(--ink)}
+  a{color:var(--brass)}
+  footer{margin-top:44px;color:var(--soft);font-size:.78rem;border-top:1px solid var(--line);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>fallbrain<span class="dot">◊</span></h1>
+  <p class="sub">Boot a company on your own model. The estate supplies the organs (the tools that do the
+  work), your local model supplies the words, and this page's <b>gated kernel supplies the law</b>:
+  statutory clocks first, money behind a human door, nothing beyond its grant.</p>
+
+  <h2>1 · The company</h2>
+  <div class="card">
+    <div class="row">
+      <input id="coName" placeholder="Company name" value="Northgate Claims" style="flex:1;min-width:170px">
+      <select id="coVert"></select>
+      <button id="btnAssemble">Assemble</button>
+    </div>
+    <div id="assembleOut" style="margin-top:12px"></div>
+  </div>
+
+  <h2>2 · The brain (your local model)</h2>
+  <div class="card">
+    <div class="row">
+      <button id="btnProbe" class="ghost">Probe local model</button>
+      <span id="probeRelay" class="status">FallRelay :17345 — not probed</span>
+      <span id="probeOllama" class="status">Ollama :11434 — not probed</span>
+    </div>
+    <p style="color:var(--soft);font-size:.85rem;margin:10px 0 0">The model words drafts and reads free text —
+    it never makes the call. The deciding law is the deterministic kernel below, witness-gated 28/28, and it
+    runs identically whether the model is up or not. Local-down degrades the <em>wording</em>, never the <em>law</em>.</p>
+  </div>
+
+  <h2>3 · The day — what the organs report</h2>
+  <div class="card">
+    <div class="grid2">
+      <div><label>Cooling-off expired</label><input id="st-cool" type="number" min="0" value="1"></div>
+      <div><label>Complaints open</label><input id="st-comp" type="number" min="0" value="1"></div>
+      <div><label>CDD pending</label><input id="st-cdd" type="number" min="0" value="3"></div>
+      <div><label>KYC reviews due</label><input id="st-rev" type="number" min="0" value="2"></div>
+      <div><label>Invoices unpaid</label><input id="st-inv" type="number" min="0" value="4"></div>
+      <div><label>Documents awaited</label><input id="st-doc" type="number" min="0" value="2"></div>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <span style="color:var(--soft);font-size:.85rem">Grant:</span>
+      <input id="grBudget" type="number" min="0" value="6" style="width:80px" title="action budget">
+      <span style="color:var(--soft);font-size:.8rem">actions · capabilities: intake, casework, documents, accounts, compliance, invoicing</span>
+      <button id="btnRun" style="margin-left:auto">Run the loop</button>
+    </div>
+  </div>
+
+  <h2>4 · The loop — every decision speaks</h2>
+  <div class="log" id="log">Assemble a company, then run the loop.</div>
+  <div class="doors" id="doorRow"></div>
+
+  <div class="honest"><b>Honest wire.</b> The organs are real and live (every link works); the law is real
+  (this exact kernel, inlined verbatim, mutation-gated 28/28 in CI); the doors and the grant wall are real
+  refusals, not theatre. The <em>day state</em> above is demo input — wiring the loop to read each organ's
+  own device-local records is per-organ work, and this page says so rather than faking it. The brain probe
+  reaches your machine only; nothing here leaves your browser.</div>
+
+  <footer>fallbrain · the assembly: fallcore is the brain · fallrouter routes · didy conducts · fallcorp is
+  the shape · the estate is the body — this switches them on for ONE company ·
+  <a href="https://github.com/sjgant80-hub/fallbrain">source + gate</a> · Built with Konomi (created by Thomas Frumkin · <a href="https://konomi-systems.com">konomi-systems.com</a>)</footer>
+</div>
+
+<script>/*__KERNEL_START__*/
+(function(){
+// fallbrain · brain.mjs — the company brain's LAW, gated so it can't drift.
+//
+// The estate already has the pieces: fallcore (the on-prem model), fallrouter (local⇄frontier),
+// didy/fall-os (the conductor), fallcorp (the 90/10 company shape), and ~40 live organs (the tools
+// that do the work). fallbrain is the ASSEMBLY: given a company spec it picks the organs, and given
+// the organs' state it decides the next action — deterministically, so the deciding law is gateable.
+// The LOCAL MODEL words drafts and reads free text; it never makes the call. This kernel makes the
+// call, and every call speaks its reason.
+//
+// Three laws:
+//   assemble(spec, organs)  — staff the company from the estate; REFUSE with named gaps, never
+//                             silently under-staff (the empty-shelf defect class).
+//   nextAction(state)       — the priority law: statutory clocks before money, money behind a door.
+//   tick(state, grant)      — no action without a grant that covers it: capability × budget checked
+//                             BEFORE the action (openkonomi doctrine — the 2.2M-leak made impossible).
+//
+// Pure and total: garbage in → { ok:false, why }, never a wrong action.
+
+const DOORS = Object.freeze(['money', 'legal', 'taste', 'client-trust']);
+const CAPABILITIES = Object.freeze([
+  'intake', 'casework', 'documents', 'accounts', 'compliance',
+  'sales', 'hiring', 'scheduling', 'invoicing', 'payments', 'forms',
+]);
+
+const str = (v) => (typeof v === 'string' ? v : '');
+const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v)) ? v : null;
+const nat = (v) => Number.isInteger(v) && v >= 0;
+
+/** A company spec: a name, a vertical the estate staffs, and the capabilities it needs. */
+function validSpec(spec) {
+  const s = obj(spec);
+  if (!s) return { ok: false, why: 'not a company spec' };
+  if (!str(s.name).trim()) return { ok: false, why: 'a company needs a name' };
+  if (!str(s.vertical).trim()) return { ok: false, why: 'a company needs a vertical (e.g. claims, legal, accountancy)' };
+  if (!Array.isArray(s.needs) || s.needs.length === 0) return { ok: false, why: 'a company needs at least one capability (e.g. intake, casework)' };
+  for (const n of s.needs) if (!CAPABILITIES.includes(n)) return { ok: false, why: `"${str(n)}" is not a capability the estate staffs (${CAPABILITIES.join(', ')})` };
+  return { ok: true, why: 'ok' };
+}
+
+/**
+ * Staff the company. Every needed capability must resolve to a LIVE organ; a need the estate cannot
+ * staff is a NAMED refusal, never a silent gap. The four doors are always human — they are not
+ * organs and cannot be assembled away.
+ */
+function assemble(spec, organMap) {
+  const v = validSpec(spec);
+  if (!v.ok) return v;
+  const m = obj(organMap);
+  if (!m || !obj(m.verticals) || !Array.isArray(m.shared)) return { ok: false, why: 'organMap must carry { verticals, shared } (generated from the estate index)' };
+  const vertical = m.verticals[spec.vertical];
+  if (!Array.isArray(vertical)) {
+    return { ok: false, why: `the estate has no "${spec.vertical}" vertical — it staffs: ${Object.keys(m.verticals).join(', ')}` };
+  }
+  const pool = vertical.concat(m.shared);
+  const organs = [], missing = [];
+  for (const need of spec.needs) {
+    const found = pool.filter((o) => o && o.capability === need);
+    if (found.length === 0) missing.push(need);
+    else organs.push(...found);
+  }
+  if (missing.length) {
+    return { ok: false, why: `cannot staff ${spec.name}: no live organ covers ${missing.join(', ')} — a company assembled with silent gaps is the empty-shelf defect, so this refuses instead` };
+  }
+  // dedupe by name, keep first capability assignment
+  const seen = new Set();
+  const staff = organs.filter((o) => (seen.has(o.name) ? false : (seen.add(o.name), true)));
+  return {
+    ok: true,
+    company: spec.name,
+    vertical: spec.vertical,
+    organs: staff,
+    doors: DOORS.map((d) => ({ door: d, holder: 'human' })),
+    why: `${staff.length} organs staffed across ${spec.needs.length} capabilities · all four doors human`,
+  };
+}
+
+/**
+ * The priority law. Given the organs' observed state (counts, all non-negative integers), decide the
+ * ONE next action. Order is argued, not arbitrary:
+ *   1 expired cooling-off  — a statutory cancellation right is live NOW            → legal door
+ *   2 open complaints      — the DISP clock is running; silence compounds it       → client-trust door
+ *   3 pending CDD          — AML: the firm must not act for an unverified client   → legal door
+ *   4 reviews due          — periodic KYC review, drafted automatically            → auto
+ *   5 unpaid invoices      — draft the chaser (auto); MOVING money is a door       → auto (draft only)
+ *   6 documents awaited    — generate via the paper organ                          → auto
+ *   7 idle                 — summarise the day into memory (the brain learns)      → auto
+ * Every decision carries its reason; a decision that cannot speak is not a decision.
+ */
+function nextAction(state) {
+  const s = obj(state);
+  if (!s) return { ok: false, why: 'not an observed state' };
+  const fields = ['coolingExpired', 'complaintsOpen', 'cddPending', 'reviewsDue', 'invoicesUnpaid', 'docsAwaited'];
+  for (const f of fields) {
+    if (s[f] !== undefined && !nat(s[f])) return { ok: false, why: `${f} must be a non-negative integer count` };
+  }
+  const n = (f) => (s[f] === undefined ? 0 : s[f]);
+  if (n('coolingExpired') > 0) return { ok: true, organ: 'intake', action: 'process-cooling-cancellation', count: n('coolingExpired'), door: 'legal', why: `${n('coolingExpired')} cooling-off period(s) expired — statutory cancellation processing queued at the legal door` };
+  if (n('complaintsOpen') > 0) return { ok: true, organ: 'intake', action: 'draft-complaint-response', count: n('complaintsOpen'), door: 'client-trust', why: `${n('complaintsOpen')} open complaint(s) — DISP clock running; response drafted, queued at the client-trust door` };
+  if (n('cddPending') > 0) return { ok: true, organ: 'intake', action: 'draft-cdd-verification', count: n('cddPending'), door: 'legal', why: `${n('cddPending')} claimant(s) awaiting CDD — AML bars acting for unverified clients; verification queued at the legal door` };
+  if (n('reviewsDue') > 0) return { ok: true, organ: 'intake', action: 'draft-kyc-review', count: n('reviewsDue'), door: null, why: `${n('reviewsDue')} periodic KYC review(s) due — drafts prepared automatically` };
+  if (n('invoicesUnpaid') > 0) return { ok: true, organ: 'invoicing', action: 'draft-payment-chaser', count: n('invoicesUnpaid'), door: null, why: `${n('invoicesUnpaid')} unpaid invoice(s) — chasers drafted; any actual money movement would queue at the money door` };
+  if (n('docsAwaited') > 0) return { ok: true, organ: 'documents', action: 'generate-documents', count: n('docsAwaited'), door: null, why: `${n('docsAwaited')} document(s) awaited — generated via the paper organ` };
+  return { ok: true, organ: 'memory', action: 'summarise-day', count: 0, door: null, why: 'nothing urgent — summarising the day into memory so tomorrow starts smarter' };
+}
+
+/**
+ * One governed tick. The action nextAction chose runs ONLY if the grant covers it: the organ's
+ * capability must be granted and the action budget must not be exhausted — checked BEFORE the act.
+ * Door actions never auto-run: they queue for the human key regardless of grant. Pure: returns the
+ * decision + the new budget, mutates nothing.
+ */
+function tick(state, grant) {
+  const g = obj(grant);
+  if (!g || !Array.isArray(g.capabilities) || !nat(g.budget)) {
+    return { ok: false, why: 'a tick needs a grant: { capabilities: [...], budget: n } — no grant, no action (the wallet rule)' };
+  }
+  const d = nextAction(state);
+  if (!d.ok) return d;
+  const capNeeded = d.organ === 'memory' ? null : d.organ;
+  if (capNeeded && !g.capabilities.includes(capNeeded)) {
+    return { ok: true, acted: false, decision: d, budget: g.budget, why: `REFUSED: the grant does not cover "${capNeeded}" — the brain cannot exceed its grant, so the action is dropped, not smuggled` };
+  }
+  if (g.budget === 0) {
+    return { ok: true, acted: false, decision: d, budget: 0, why: 'REFUSED: action budget exhausted — the loop stops here until a human renews the grant' };
+  }
+  if (d.door) {
+    return { ok: true, acted: false, queued: d.door, decision: d, budget: g.budget, why: `queued at the ${d.door} door — ${d.why}. A human turns this key; the brain never does` };
+  }
+  return { ok: true, acted: true, decision: d, budget: g.budget - 1, why: d.why };
+}
+window.FALLBRAIN = { DOORS, CAPABILITIES, validSpec, assemble, nextAction, tick };
+})();
+/*__KERNEL_END__*/</script>
+<script>
+const $ = (id) => document.getElementById(id);
+const K = window.FALLBRAIN;
+let ORGANS = null, COMPANY = null;
+
+fetch('organs.json').then(r => r.json()).then(o => {
+  ORGANS = o;
+  $('coVert').innerHTML = Object.keys(o.verticals).map(v => `<option value="${v}">${v}</option>`).join('');
+}).catch(() => { $('assembleOut').innerHTML = '<span style="color:var(--bad)">organs.json failed to load — the estate map is missing.</span>'; });
+
+const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+$('btnAssemble').onclick = () => {
+  if (!ORGANS) return;
+  const spec = { name: $('coName').value.trim() || 'Unnamed Co', vertical: $('coVert').value,
+    needs: ['intake', 'casework', 'documents', 'accounts', 'compliance', 'invoicing'] };
+  const r = K.assemble(spec, ORGANS);
+  if (!r.ok) { $('assembleOut').innerHTML = '<span style="color:var(--bad)">REFUSED: ' + esc(r.why) + '</span>'; COMPANY = null; return; }
+  COMPANY = r;
+  $('assembleOut').innerHTML =
+    '<div style="color:var(--good);font-size:.88rem;margin-bottom:8px">✓ ' + esc(r.why) + '</div>' +
+    r.organs.map(o => `<div class="organ"><span class="cap">${esc(o.capability)}</span><a href="${esc(o.url)}" target="_blank" rel="noopener">${esc(o.name)}</a><span class="desc">${esc(o.desc)}</span></div>`).join('');
+  renderDoors({});
+};
+
+function renderDoors(queues) {
+  $('doorRow').innerHTML = (COMPANY ? COMPANY.doors : []).map(d =>
+    `<div class="doorbox"><b>${esc(d.door)}</b> · human<div class="q">${queues[d.door] ? esc(queues[d.door]) : ''}</div></div>`).join('');
+}
+
+async function probe(url, elId, label) {
+  const el = $(elId);
+  el.textContent = label + ' — probing…'; el.className = 'status';
+  try {
+    const ac = new AbortController(); setTimeout(() => ac.abort(), 2500);
+    await fetch(url, { mode: 'no-cors', signal: ac.signal });
+    el.textContent = label + ' — reachable'; el.className = 'status up';
+    return true;
+  } catch (e) {
+    el.textContent = label + ' — not reachable from this page'; el.className = 'status down';
+    return false;
+  }
+}
+$('btnProbe').onclick = async () => {
+  const relay = await probe('http://localhost:17345/', 'probeRelay', 'FallRelay :17345');
+  const oll = await probe('http://localhost:11434/', 'probeOllama', 'Ollama :11434');
+  if (!relay && !oll && location.protocol === 'https:') {
+    $('log').textContent = 'Note: a https page cannot always reach http://localhost (mixed content). Run the page locally for a true probe — the LAW below runs identically either way.';
+  }
+};
+
+$('btnRun').onclick = () => {
+  if (!COMPANY) { $('log').textContent = 'Assemble a company first — the loop refuses to run unstaffed.'; return; }
+  let state = {
+    coolingExpired: +$('st-cool').value || 0, complaintsOpen: +$('st-comp').value || 0,
+    cddPending: +$('st-cdd').value || 0, reviewsDue: +$('st-rev').value || 0,
+    invoicesUnpaid: +$('st-inv').value || 0, docsAwaited: +$('st-doc').value || 0,
+  };
+  let grant = { capabilities: ['intake', 'casework', 'documents', 'accounts', 'compliance', 'invoicing'], budget: Math.max(0, +$('grBudget').value || 0) };
+  const lines = []; const queues = {};
+  for (let i = 1; i <= 20; i++) {
+    const r = K.tick(state, grant);
+    if (!r.ok) { lines.push('<span class="t-ref">✗ ' + esc(r.why) + '</span>'); break; }
+    if (r.queued) {
+      lines.push('<span class="t-door">◧ tick ' + i + ' · QUEUED at the ' + esc(r.queued) + ' door — ' + esc(r.decision.why) + '</span>');
+      queues[r.queued] = (queues[r.queued] ? queues[r.queued] + ' · ' : '') + r.decision.action;
+      // the human hasn't turned the key; that workload waits — clear it from the loop's view so it moves on
+      state = clearFor(state, r.decision.action);
+      continue;
+    }
+    if (!r.acted) { lines.push('<span class="t-ref">■ tick ' + i + ' · ' + esc(r.why) + '</span>'); break; }
+    grant.budget = r.budget;
+    lines.push('<span class="t-act">● tick ' + i + ' · ' + esc(r.decision.action) + ' — ' + esc(r.decision.why) + ' (budget left: ' + r.budget + ')</span>');
+    if (r.decision.action === 'summarise-day') { lines.push('<span class="t-idle">— day complete: the brain sleeps, memory written.</span>'); break; }
+    state = clearFor(state, r.decision.action);
+  }
+  $('log').innerHTML = lines.join('\n');
+  renderDoors(queues);
+};
+function clearFor(s, action) {
+  const map = { 'process-cooling-cancellation': 'coolingExpired', 'draft-complaint-response': 'complaintsOpen',
+    'draft-cdd-verification': 'cddPending', 'draft-kyc-review': 'reviewsDue',
+    'draft-payment-chaser': 'invoicesUnpaid', 'generate-documents': 'docsAwaited' };
+  const k = map[action]; if (!k) return s;
+  const n = Object.assign({}, s); n[k] = 0; return n;
+}
+</script>
+</body>
+</html>

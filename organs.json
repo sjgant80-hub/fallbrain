@@ -1,0 +1,328 @@
+{
+  "generated": "2026-08-25",
+  "source": "estate-index.json",
+  "verticals": {
+    "claims": [
+      {
+        "name": "fallclaimonboard",
+        "capability": "intake",
+        "url": "https://sjgant80-hub.github.io/fallclaimonboard/",
+        "desc": "Sovereign FCA CMR-shaped claimant onboarding for UK claims firms (CMC + solicitor practices). Capacity assessment, referral source disclosur"
+      },
+      {
+        "name": "fallclaim",
+        "capability": "casework",
+        "url": "https://sjgant80-hub.github.io/fallclaim/",
+        "desc": "Sovereign single-file case management for UK claims firms (PI/RTA/EL/PL/clinical neg/housing/financial mis-selling). JC Guideline quantum, C"
+      },
+      {
+        "name": "fallclaimpaper",
+        "capability": "documents",
+        "url": "https://sjgant80-hub.github.io/fallclaimpaper/",
+        "desc": "Sovereign UK claims document generator for CMC and solicitor claims firms. CFA / DBA agreements · Letter of Claim · Pre-Action Disclosure · "
+      },
+      {
+        "name": "fallclaimpractice",
+        "capability": "accounts",
+        "url": "https://sjgant80-hub.github.io/fallclaimpractice/",
+        "desc": "Sovereign firm-side accounting for UK claims firms · client escrow · CFA / DBA / hourly / fixed fee tracker · success-fee accruals · ATE ins"
+      }
+    ],
+    "legal": [
+      {
+        "name": "falllegalonboard",
+        "capability": "intake",
+        "url": "https://sjgant80-hub.github.io/falllegalonboard/",
+        "desc": "Sovereign SRA-shaped client onboarding for UK solicitor firms: CDD (individual + entity), beneficial-ownership/PSC capture, source-of-funds,"
+      },
+      {
+        "name": "falllegal",
+        "capability": "casework",
+        "url": "https://sjgant80-hub.github.io/falllegal/",
+        "desc": "Sovereign single-file matter management + UK law research engine for 1-10 person SRA-regulated solicitor firms. Multi-firm, multi-adviser, m"
+      },
+      {
+        "name": "falllegalpaper",
+        "capability": "documents",
+        "url": "https://sjgant80-hub.github.io/falllegalpaper/",
+        "desc": "Sovereign SRA-shaped document generator for UK solicitor firms. Engagement letters · terms of business · costs · CFA · DBA · advice letters "
+      },
+      {
+        "name": "falllegalpractice",
+        "capability": "accounts",
+        "url": "https://sjgant80-hub.github.io/falllegalpractice/",
+        "desc": "Sovereign firm-side accounting for UK SRA-regulated solicitor practices · client account / office account ledgers · SRA Accounts Rules 2.5 /"
+      }
+    ],
+    "accountancy": [
+      {
+        "name": "fallbooksonboard",
+        "capability": "intake",
+        "url": "https://sjgant80-hub.github.io/fallbooksonboard/",
+        "desc": "Sovereign accountancy-firm client onboarding · AML CDD · PSC + beneficial-ownership capture · engagement letter draft · audit chain · single"
+      },
+      {
+        "name": "fallbooks",
+        "capability": "casework",
+        "url": "https://sjgant80-hub.github.io/fallbooks/",
+        "desc": "Sovereign single-file UK accountancy practice tool. Multi-firm, multi-adviser, multi-client. SA · CT · VAT · PAYE · Companies House. Deadlin"
+      },
+      {
+        "name": "fallbookspaper",
+        "capability": "documents",
+        "url": "https://sjgant80-hub.github.io/fallbookspaper/",
+        "desc": "Sovereign accountancy document generator for UK practices. Engagement letters, SA100/CT600/VAT100 summaries, management accounts, year-end p"
+      },
+      {
+        "name": "fallbookspractice",
+        "capability": "accounts",
+        "url": "https://sjgant80-hub.github.io/fallbookspractice/",
+        "desc": "Sovereign practice management for UK accountancy firms."
+      }
+    ],
+    "estate": [
+      {
+        "name": "fallestateonboard",
+        "capability": "intake",
+        "url": "https://sjgant80-hub.github.io/fallestateonboard/",
+        "desc": "Sovereign UK estate & letting agent client onboarding."
+      },
+      {
+        "name": "fallestate",
+        "capability": "casework",
+        "url": "https://sjgant80-hub.github.io/fallestate/",
+        "desc": "The sovereign island marketing showroom · 300 tools · what each does + kills + saves + who it helps · AI-Native Solutions"
+      },
+      {
+        "name": "fallestatepaper",
+        "capability": "documents",
+        "url": "https://sjgant80-hub.github.io/fallestatepaper/",
+        "desc": "Sovereign UK estate & letting agent document generation."
+      },
+      {
+        "name": "fallestatepractice",
+        "capability": "accounts",
+        "url": "https://sjgant80-hub.github.io/fallestatepractice/",
+        "desc": "Sovereign UK estate & letting agent firm accounting."
+      }
+    ],
+    "recruitment": [
+      {
+        "name": "fallrecruitonboard",
+        "capability": "intake",
+        "url": "https://sjgant80-hub.github.io/fallrecruitonboard/",
+        "desc": "Sovereign UK recruitment candidate and client registration."
+      },
+      {
+        "name": "fallrecruit",
+        "capability": "casework",
+        "url": "https://sjgant80-hub.github.io/fallrecruit/",
+        "desc": "Sovereign UK recruitment agency management."
+      },
+      {
+        "name": "fallrecruitpaper",
+        "capability": "documents",
+        "url": "https://sjgant80-hub.github.io/fallrecruitpaper/",
+        "desc": "Sovereign UK recruitment document generation."
+      },
+      {
+        "name": "fallrecruitpractice",
+        "capability": "accounts",
+        "url": "https://sjgant80-hub.github.io/fallrecruitpractice/",
+        "desc": "Sovereign UK recruitment agency practice management."
+      }
+    ],
+    "clinic": [
+      {
+        "name": "fallcliniconboard",
+        "capability": "intake",
+        "url": "https://sjgant80-hub.github.io/fallcliniconboard/",
+        "desc": "Sovereign UK healthcare clinic patient registration."
+      },
+      {
+        "name": "fallclinic",
+        "capability": "casework",
+        "url": "https://sjgant80-hub.github.io/fallclinic/",
+        "desc": "Sovereign UK healthcare clinic management anchor."
+      },
+      {
+        "name": "fallclinicpaper",
+        "capability": "documents",
+        "url": "https://sjgant80-hub.github.io/fallclinicpaper/",
+        "desc": "Sovereign UK healthcare clinic document generation."
+      },
+      {
+        "name": "fallclinicpractice",
+        "capability": "accounts",
+        "url": "https://sjgant80-hub.github.io/fallclinicpractice/",
+        "desc": "Sovereign UK healthcare clinic practice management."
+      }
+    ],
+    "hr": [
+      {
+        "name": "fallhronboard",
+        "capability": "intake",
+        "url": "https://sjgant80-hub.github.io/fallhronboard/",
+        "desc": "Sovereign UK new starter onboarding."
+      },
+      {
+        "name": "fallhr",
+        "capability": "casework",
+        "url": "https://sjgant80-hub.github.io/fallhr/",
+        "desc": "Sovereign UK HR management for SMEs."
+      },
+      {
+        "name": "fallhrpaper",
+        "capability": "documents",
+        "url": "https://sjgant80-hub.github.io/fallhrpaper/",
+        "desc": "Sovereign UK HR document generation."
+      },
+      {
+        "name": "fallhrpractice",
+        "capability": "accounts",
+        "url": "https://sjgant80-hub.github.io/fallhrpractice/",
+        "desc": "Sovereign UK HR/payroll practice management."
+      }
+    ],
+    "insurance": [
+      {
+        "name": "fallinsuranceonboard",
+        "capability": "intake",
+        "url": "https://sjgant80-hub.github.io/fallinsuranceonboard/",
+        "desc": "Sovereign IDD-shaped client onboarding for UK FCA-regulated insurance brokers."
+      },
+      {
+        "name": "fallinsurance",
+        "capability": "casework",
+        "url": "https://sjgant80-hub.github.io/fallinsurance/",
+        "desc": "Sovereign single-file UK GI insurance broker policy management anchor."
+      },
+      {
+        "name": "fallinsurancepaper",
+        "capability": "documents",
+        "url": "https://sjgant80-hub.github.io/fallinsurancepaper/",
+        "desc": "Sovereign UK insurance broker document generator. TOBA, demands & needs, IPID, policy summary, cover note, mid-term adjustment, renewal, can"
+      },
+      {
+        "name": "fallinsurancepractice",
+        "capability": "accounts",
+        "url": "https://sjgant80-hub.github.io/fallinsurancepractice/",
+        "desc": "fallinsurancepractice — single-HTML PWA tool · sovereign · MIT"
+      }
+    ],
+    "mortgage": [
+      {
+        "name": "fallmortgageonboard",
+        "capability": "intake",
+        "url": "https://sjgant80-hub.github.io/fallmortgageonboard/",
+        "desc": "Sovereign MCOB-shaped client onboarding for UK FCA-regulated mortgage brokers."
+      },
+      {
+        "name": "fallmortgage",
+        "capability": "casework",
+        "url": "https://sjgant80-hub.github.io/fallmortgage/",
+        "desc": ""
+      },
+      {
+        "name": "fallmortgagepaper",
+        "capability": "documents",
+        "url": "https://sjgant80-hub.github.io/fallmortgagepaper/",
+        "desc": "Sovereign MCOB-shaped document generator for UK FCA-regulated mortgage brokers."
+      },
+      {
+        "name": "fallmortgagepractice",
+        "capability": "accounts",
+        "url": "https://sjgant80-hub.github.io/fallmortgagepractice/",
+        "desc": "Sovereign firm-side accounting for UK FCA-regulated mortgage broker practices."
+      }
+    ],
+    "veterinary": [
+      {
+        "name": "fallvetonboard",
+        "capability": "intake",
+        "url": "https://sjgant80-hub.github.io/fallvetonboard/",
+        "desc": "fallvetonboard — single-HTML PWA tool · sovereign · MIT"
+      },
+      {
+        "name": "fallvet",
+        "capability": "casework",
+        "url": "https://sjgant80-hub.github.io/fallvet/",
+        "desc": "Sovereign UK veterinary practice anchor."
+      },
+      {
+        "name": "fallvetpaper",
+        "capability": "documents",
+        "url": "https://sjgant80-hub.github.io/fallvetpaper/",
+        "desc": "Sovereign UK veterinary clinical document generation."
+      },
+      {
+        "name": "fallvetpractice",
+        "capability": "accounts",
+        "url": "https://sjgant80-hub.github.io/fallvetpractice/",
+        "desc": "Sovereign UK veterinary practice management."
+      }
+    ]
+  },
+  "shared": [
+    {
+      "name": "falljustice",
+      "capability": "compliance",
+      "url": "https://sjgant80-hub.github.io/falljustice/",
+      "desc": "Letter-before-action and data-subject-access-request engine for UK consumer claims. Verified case law, cited throughout. Not legal advice."
+    },
+    {
+      "name": "redress-engine",
+      "capability": "compliance",
+      "url": "https://sjgant80-hub.github.io/redress-engine/",
+      "desc": "A legal-process navigator for everyone — plain-English rights, the REAL statutory lever per scenario, calm cited letters, deadlines, honest "
+    },
+    {
+      "name": "fallcrm",
+      "capability": "sales",
+      "url": "https://sjgant80-hub.github.io/fallcrm/",
+      "desc": "◊ fallcrm · sovereign single-file CRM · the delete-HubSpot wedge · prime 373"
+    },
+    {
+      "name": "falllead",
+      "capability": "sales",
+      "url": "https://sjgant80-hub.github.io/falllead/",
+      "desc": "FallLead Elite · IFA Lead Intelligence — Fall"
+    },
+    {
+      "name": "fallhire",
+      "capability": "hiring",
+      "url": "https://sjgant80-hub.github.io/fallhire/",
+      "desc": "◊ fallhire · sovereign hiring pipeline + interview scorecard · single HTML · prime 359"
+    },
+    {
+      "name": "fallslot",
+      "capability": "scheduling",
+      "url": "https://sjgant80-hub.github.io/fallslot/",
+      "desc": "Share a calendar link · sovereign · single HTML · zero subscription · obsoletes Calendly · prime 263"
+    },
+    {
+      "name": "fallinvoice",
+      "capability": "invoicing",
+      "url": "https://sjgant80-hub.github.io/fallinvoice/",
+      "desc": "◊ fallinvoice · sovereign single-file invoice + one-click-pay + reminders · prime 349"
+    },
+    {
+      "name": "fallpay",
+      "capability": "payments",
+      "url": "https://sjgant80-hub.github.io/fallpay/",
+      "desc": "Sovereign multi-rail payment receipt · Stripe+PayPal+crypto+invoice · MIT · ◊·κ=1 · prime 307"
+    },
+    {
+      "name": "fallpdf",
+      "capability": "documents",
+      "url": "https://sjgant80-hub.github.io/fallpdf/",
+      "desc": "◊ FallPDF · sovereign Acrobat wedge · markdown / HTML / text → real PDF · multi-page · headers / footers / page numbers / images · Ω autopil"
+    },
+    {
+      "name": "fallform",
+      "capability": "forms",
+      "url": "https://sjgant80-hub.github.io/fallform/",
+      "desc": "Forms · no response cap · ever · sovereign single HTML · obsoletes Typeform/JotForm · prime 269"
+    }
+  ]
+}
