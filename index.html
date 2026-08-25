@@ -318,8 +318,13 @@ const REVIEW_WINDOW_MS = 30 * 86400000;
  * personStore names the row store for records mode; complaintsStore exists in claims only.
  */
 const ORGAN_DBS = Object.freeze({
+  // paper entries exist ONLY where the paper organ's work-unit verified compatible (2026-08-25):
+  // claims=cases, legal=matters (DB naming diverges AGAIN: fallclaimpaper-v1 but falllegalpaper-db).
+  // mortgage (cases) + insurance (policies) HAVE work-units but their lifecycle vocab ('dip-obtained',
+  // 'in-force') and UI dispatch are unverified — no entry until verified, honest 0 over invention.
+  // The other six paper organs are client-only (no work-unit store at all) — nothing to signal from.
   claims: { db: 'fallclaimonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: 'complaints', paper: Object.freeze({ db: 'fallclaimpaper-v1', casesStore: 'cases' }) },
-  legal: { db: 'falllegalonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: null },
+  legal: { db: 'falllegalonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: null, paper: Object.freeze({ db: 'falllegalpaper-db', casesStore: 'matters' }) },
   insurance: { db: 'fallinsuranceonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: null },
   veterinary: { db: 'fallvetonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: null },
   accountancy: { db: 'fallbooksonboard.v1', mode: 'records', personStore: 'clients', complaintsStore: null },

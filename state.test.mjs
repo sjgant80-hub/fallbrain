@@ -121,5 +121,13 @@ test('ORGAN_DBS — the verified map covers all ten verticals and records BOTH s
   assert.ok(verts.every((v) => v === 'claims' || !ORGAN_DBS[v].complaintsStore), 'complaints exist in claims ONLY');
   assert.equal(ORGAN_DBS.claims.paper.db, 'fallclaimpaper-v1', 'the paper organ carrying the docsAwaited signal');
   assert.equal(ORGAN_DBS.claims.paper.casesStore, 'cases');
+  // legal's paper organ verified 2026-08-25 — and the DB naming diverges a THIRD way
+  assert.equal(ORGAN_DBS.legal.paper.db, 'falllegalpaper-db', 'not -v1, not .v1: a third naming variant');
+  assert.equal(ORGAN_DBS.legal.paper.casesStore, 'matters', 'legal calls its work-units matters');
+  // mortgage/insurance have work-units but UNVERIFIED lifecycles — no paper entry is deliberate
+  assert.ok(!ORGAN_DBS.mortgage.paper && !ORGAN_DBS.insurance.paper, 'unverified lifecycles stay honest-0, never guessed');
+  for (const v of ['accountancy', 'estate', 'recruitment', 'clinic', 'hr', 'veterinary']) {
+    assert.ok(!ORGAN_DBS[v].paper, v + ': its paper organ is client-only (no work-unit store) — nothing to signal from');
+  }
   assert.equal(ORGAN_DBS.sharedInvoices.db, 'fallinvoice');
 });
