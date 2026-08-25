@@ -29,7 +29,7 @@ const REVIEW_WINDOW_MS = 30 * 86400000;
  * personStore names the row store for records mode; complaintsStore exists in claims only.
  */
 export const ORGAN_DBS = Object.freeze({
-  claims: { db: 'fallclaimonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: 'complaints' },
+  claims: { db: 'fallclaimonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: 'complaints', paper: Object.freeze({ db: 'fallclaimpaper-v1', casesStore: 'cases' }) },
   legal: { db: 'falllegalonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: null },
   insurance: { db: 'fallinsuranceonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: null },
   veterinary: { db: 'fallvetonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: null },
@@ -43,18 +43,21 @@ export const ORGAN_DBS = Object.freeze({
 });
 
 /**
- * Derive the day-state the loop runs on. records = { clients?, complaints?, invoices? } — each an
- * array when present (a missing source reads as empty, a NON-ARRAY is refused: a wrong shape must
- * never derive a wrong-but-plausible zero). nowMs anchors the clocks and must be a real timestamp.
+ * Derive the day-state the loop runs on. records = { clients?, complaints?, invoices?, cases? } —
+ * each an array when present (a missing source reads as empty, a NON-ARRAY is refused: a wrong
+ * shape must never derive a wrong-but-plausible zero). nowMs anchors the clocks and must be real.
+ * cases come from the PAPER organ: docsAwaited = awaitedDocuments still listed on un-settled cases
+ * (the register fallclaimpaper keeps of what each case waits on).
  */
 export function deriveState(records, nowMs) {
   const r = obj(records);
-  if (!r) return { ok: false, why: 'records must be { clients?, complaints?, invoices? }' };
+  if (!r) return { ok: false, why: 'records must be { clients?, complaints?, invoices?, cases? }' };
   if (!Number.isInteger(nowMs) || nowMs <= 0) return { ok: false, why: 'nowMs must be a real epoch-ms timestamp — the cooling and review clocks anchor to it' };
-  const clients = arr(r.clients), complaints = arr(r.complaints), invoices = arr(r.invoices);
+  const clients = arr(r.clients), complaints = arr(r.complaints), invoices = arr(r.invoices), cases = arr(r.cases);
   if (!clients) return { ok: false, why: 'clients must be an array of client records' };
   if (!complaints) return { ok: false, why: 'complaints must be an array of complaint records' };
   if (!invoices) return { ok: false, why: 'invoices must be an array of invoice records' };
+  if (!cases) return { ok: false, why: 'cases must be an array of case records' };
 
   const active = clients.filter((c) => obj(c) && !c.archivedAt);
   const coolingExpired = active.filter((c) => {
@@ -68,13 +71,17 @@ export function deriveState(records, nowMs) {
   }).length;
   const complaintsOpen = complaints.filter((x) => obj(x) && !x.resolvedAt).length;
   const invoicesUnpaid = invoices.filter((x) => obj(x) && x.status === 'sent').length;
+  // the paper organ's signal: awaited documents on cases that are still live (a settled case waits on nothing)
+  const docsAwaited = cases.reduce((n, k) => {
+    if (!obj(k) || k.status === 'settled' || k.status === 'closed') return n;
+    return n + (Array.isArray(k.awaitedDocuments) ? k.awaitedDocuments.filter((a) => obj(a)).length : 0);
+  }, 0);
 
   return {
     ok: true,
-    coolingExpired, complaintsOpen, cddPending, reviewsDue, invoicesUnpaid,
-    docsAwaited: 0, // no organ publishes an "awaited documents" signal yet — 0 by honesty, not by measurement
-    counts: { activeClients: active.length, totalClients: clients.length, complaints: complaints.length, invoices: invoices.length },
-    why: `derived from ${active.length} active client(s), ${complaints.length} complaint record(s), ${invoices.length} invoice(s) — docsAwaited has no organ signal yet and reads 0`,
+    coolingExpired, complaintsOpen, cddPending, reviewsDue, invoicesUnpaid, docsAwaited,
+    counts: { activeClients: active.length, totalClients: clients.length, complaints: complaints.length, invoices: invoices.length, cases: cases.length },
+    why: `derived from ${active.length} active client(s), ${complaints.length} complaint record(s), ${invoices.length} invoice(s), ${cases.length} case(s)` + (cases.length === 0 ? ' — docsAwaited reads 0 because no paper-organ cases were found on this device' : ''),
   };
 }
 

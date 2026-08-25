@@ -132,7 +132,8 @@
   CI); the doors and the grant wall are real refusals, not theatre. <b>"Read the real records" reads this
   device's actual organ databases</b> (same origin, device-local — the whole estate shares
   sjgant80-hub.github.io, so records you created in an organ here are readable here). No records on this
-  device is said plainly, never faked; docsAwaited has no organ signal yet and honestly reads 0. <b>The
+  device is said plainly, never faked; docsAwaited reads the PAPER organ's own register (fallclaimpaper's
+  cases name the documents they await — verified for claims; other verticals honestly read 0). <b>The
   inbox is a real record</b> (device-local, persists across reloads): the brain can only QUEUE keys, a
   refusal needs a reason you could argue with, and a decided key stays decided — the kernel refuses the
   second turn. <b>An approved key writes back into the organ's own records</b> — in the organ's own shapes
@@ -317,7 +318,7 @@ const REVIEW_WINDOW_MS = 30 * 86400000;
  * personStore names the row store for records mode; complaintsStore exists in claims only.
  */
 const ORGAN_DBS = Object.freeze({
-  claims: { db: 'fallclaimonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: 'complaints' },
+  claims: { db: 'fallclaimonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: 'complaints', paper: Object.freeze({ db: 'fallclaimpaper-v1', casesStore: 'cases' }) },
   legal: { db: 'falllegalonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: null },
   insurance: { db: 'fallinsuranceonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: null },
   veterinary: { db: 'fallvetonboard.v1', mode: 'snapshot', personStore: null, complaintsStore: null },
@@ -331,18 +332,21 @@ const ORGAN_DBS = Object.freeze({
 });
 
 /**
- * Derive the day-state the loop runs on. records = { clients?, complaints?, invoices? } — each an
- * array when present (a missing source reads as empty, a NON-ARRAY is refused: a wrong shape must
- * never derive a wrong-but-plausible zero). nowMs anchors the clocks and must be a real timestamp.
+ * Derive the day-state the loop runs on. records = { clients?, complaints?, invoices?, cases? } —
+ * each an array when present (a missing source reads as empty, a NON-ARRAY is refused: a wrong
+ * shape must never derive a wrong-but-plausible zero). nowMs anchors the clocks and must be real.
+ * cases come from the PAPER organ: docsAwaited = awaitedDocuments still listed on un-settled cases
+ * (the register fallclaimpaper keeps of what each case waits on).
  */
 function deriveState(records, nowMs) {
   const r = obj(records);
-  if (!r) return { ok: false, why: 'records must be { clients?, complaints?, invoices? }' };
+  if (!r) return { ok: false, why: 'records must be { clients?, complaints?, invoices?, cases? }' };
   if (!Number.isInteger(nowMs) || nowMs <= 0) return { ok: false, why: 'nowMs must be a real epoch-ms timestamp — the cooling and review clocks anchor to it' };
-  const clients = arr(r.clients), complaints = arr(r.complaints), invoices = arr(r.invoices);
+  const clients = arr(r.clients), complaints = arr(r.complaints), invoices = arr(r.invoices), cases = arr(r.cases);
   if (!clients) return { ok: false, why: 'clients must be an array of client records' };
   if (!complaints) return { ok: false, why: 'complaints must be an array of complaint records' };
   if (!invoices) return { ok: false, why: 'invoices must be an array of invoice records' };
+  if (!cases) return { ok: false, why: 'cases must be an array of case records' };
 
   const active = clients.filter((c) => obj(c) && !c.archivedAt);
   const coolingExpired = active.filter((c) => {
@@ -356,13 +360,17 @@ function deriveState(records, nowMs) {
   }).length;
   const complaintsOpen = complaints.filter((x) => obj(x) && !x.resolvedAt).length;
   const invoicesUnpaid = invoices.filter((x) => obj(x) && x.status === 'sent').length;
+  // the paper organ's signal: awaited documents on cases that are still live (a settled case waits on nothing)
+  const docsAwaited = cases.reduce((n, k) => {
+    if (!obj(k) || k.status === 'settled' || k.status === 'closed') return n;
+    return n + (Array.isArray(k.awaitedDocuments) ? k.awaitedDocuments.filter((a) => obj(a)).length : 0);
+  }, 0);
 
   return {
     ok: true,
-    coolingExpired, complaintsOpen, cddPending, reviewsDue, invoicesUnpaid,
-    docsAwaited: 0, // no organ publishes an "awaited documents" signal yet — 0 by honesty, not by measurement
-    counts: { activeClients: active.length, totalClients: clients.length, complaints: complaints.length, invoices: invoices.length },
-    why: `derived from ${active.length} active client(s), ${complaints.length} complaint record(s), ${invoices.length} invoice(s) — docsAwaited has no organ signal yet and reads 0`,
+    coolingExpired, complaintsOpen, cddPending, reviewsDue, invoicesUnpaid, docsAwaited,
+    counts: { activeClients: active.length, totalClients: clients.length, complaints: complaints.length, invoices: invoices.length, cases: cases.length },
+    why: `derived from ${active.length} active client(s), ${complaints.length} complaint record(s), ${invoices.length} invoice(s), ${cases.length} case(s)` + (cases.length === 0 ? ' — docsAwaited reads 0 because no paper-organ cases were found on this device' : ''),
   };
 }
 Object.assign(window.FALLBRAIN, { deriveState, ORGAN_DBS });
@@ -910,6 +918,11 @@ async function readOrganRecords(vertical) {
     const db = await idbOpenExisting(inv.db);
     if (db) { records.invoices = await idbGetAll(db, inv.store); sources.push(inv.db + ' (' + records.invoices.length + ' invoice(s))'); db.close(); }
   } else sources.push(inv.db + ' — none on this device');
+  // the PAPER organ's docsAwaited signal (verified for claims: fallclaimpaper's cases carry awaitedDocuments)
+  if (spec.paper && existing.has(spec.paper.db)) {
+    const db = await idbOpenExisting(spec.paper.db);
+    if (db) { records.cases = await idbGetAll(db, spec.paper.casesStore); sources.push(spec.paper.db + ' (' + records.cases.length + ' case(s))'); db.close(); }
+  } else if (spec.paper) sources.push(spec.paper.db + ' — no cases on this device');
   return { ok: true, records, sources, spec };
 }
 $('btnReal').onclick = async () => {

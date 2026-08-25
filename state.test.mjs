@@ -50,13 +50,31 @@ test('INVOICES UNPAID — sent is owed; draft is not yet owed; paid is done', ()
   assert.equal(r.invoicesUnpaid, 2);
 });
 
-test('THE DERIVED STATE FEEDS THE LOOP — shape matches nextAction\'s fields, docsAwaited honest 0', () => {
+test('THE DERIVED STATE FEEDS THE LOOP — shape matches nextAction\'s fields', () => {
   const r = deriveState({ clients: [cl({ kyc: { status: 'pending' } })] }, NOW);
   for (const f of ['coolingExpired', 'complaintsOpen', 'cddPending', 'reviewsDue', 'invoicesUnpaid', 'docsAwaited']) {
     assert.ok(Number.isInteger(r[f]) && r[f] >= 0, f + ' is a count');
   }
   assert.equal(r.docsAwaited, 0);
-  assert.match(r.why, /no organ signal/, 'the missing signal is SAID, not smuggled as a measurement');
+  assert.match(r.why, /docsAwaited reads 0 because no paper-organ cases/, 'absent cases are SAID, not smuggled as a measurement');
+});
+
+test('DOCS AWAITED — the paper organ\'s signal: awaited items on LIVE cases only, junk skipped', () => {
+  const cases = [
+    { id: 'cs1', status: 'active', awaitedDocuments: [{ id: 'a1', title: 'GP records' }, { id: 'a2', title: 'Engineer’s report' }] },
+    { id: 'cs2', status: 'settled', awaitedDocuments: [{ id: 'a3', title: 'never counted — a settled case waits on nothing' }] },
+    { id: 'cs3', status: 'closed', awaitedDocuments: [{ id: 'a4', title: 'nor a closed one' }] },
+    { id: 'cs4', status: 'active' },                                    // no field at all — fine
+    { id: 'cs5', status: 'active', awaitedDocuments: 'GP records' },    // STRING shape — contributes 0, never crashes
+    { id: 'cs6', status: 'active', awaitedDocuments: [null, 'x', { id: 'a5', title: 'medical notes' }] }, // junk inside skipped
+    null, 'garbage',
+  ];
+  const r = deriveState({ cases }, NOW);
+  assert.equal(r.ok, true);
+  assert.equal(r.docsAwaited, 3, '2 on cs1 + 1 real one on cs6');
+  assert.equal(r.counts.cases, cases.length);
+  assert.ok(!/docsAwaited reads 0/.test(r.why), 'the absent-cases caveat disappears when cases exist');
+  assert.match(deriveState({ cases: 'many' }, NOW).why, /cases must be an array/);
 });
 
 test('MISSING SOURCES read as empty; WRONG SHAPES are refused, never a plausible zero', () => {
@@ -101,5 +119,7 @@ test('ORGAN_DBS — the verified map covers all ten verticals and records BOTH s
   assert.equal(ORGAN_DBS.accountancy.personStore, 'clients');
   assert.equal(ORGAN_DBS.claims.complaintsStore, 'complaints', 'claims carries the complaints register');
   assert.ok(verts.every((v) => v === 'claims' || !ORGAN_DBS[v].complaintsStore), 'complaints exist in claims ONLY');
+  assert.equal(ORGAN_DBS.claims.paper.db, 'fallclaimpaper-v1', 'the paper organ carrying the docsAwaited signal');
+  assert.equal(ORGAN_DBS.claims.paper.casesStore, 'cases');
   assert.equal(ORGAN_DBS.sharedInvoices.db, 'fallinvoice');
 });
