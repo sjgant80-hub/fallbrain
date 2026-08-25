@@ -1,0 +1,7 @@
+[
+  {
+    "mutation": ">= → >",
+    "snippet": "count: Number.isInteger(it.count) && it.count >= 0 ? it.count : 0,",
+    "reason": "boundary-equivalent by value: at it.count === 0 the true branch keeps 0 and the false branch falls back to 0 — the entry's count is 0 either way, so no input distinguishes >= from > here. Negative and non-integer counts are pinned to 0 by tests; positive counts pass through."
+  }
+]

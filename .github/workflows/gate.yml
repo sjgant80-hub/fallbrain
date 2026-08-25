@@ -37,6 +37,16 @@ jobs:
             --timeout 60000 --cap 800 \
             --test node --test draft.test.mjs
 
+      - name: the inbox law (enqueue / turnKey / pending) against its examples
+        run: node --test inbox.test.mjs
+
+      - name: witness — try to break the inbox law (must be CLEAN)
+        run: |
+          node /tmp/witness/witness.mjs mutate inbox.mjs \
+            --timeout 60000 --cap 800 \
+            --baseline witness.baseline.json \
+            --test node --test inbox.test.mjs
+
       - name: the live page still carries the gated law
         run: |
           cp index.html /tmp/shipped.html

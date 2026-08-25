@@ -31,6 +31,10 @@ Object.assign(window.FALLBRAIN, { deriveState, ORGAN_DBS });
 ${draft.trim()}
 Object.assign(window.FALLBRAIN, { draftBrief, acceptDraft, DRAFT_SYSTEM });
 })();
+(function(){
+${strip('inbox.mjs').trim()}
+Object.assign(window.FALLBRAIN, { enqueue, turnKey, pending });
+})();
 /*__KERNEL_END__*/`;
 
 const htmlPath = join(here, 'index.html');

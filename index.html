@@ -46,6 +46,17 @@
   .draftcard .prov{font:11px ui-monospace,monospace;color:var(--soft)}
   .draftcard pre{white-space:pre-wrap;font:13px/1.5 Georgia,serif;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:12px 14px;margin:10px 0 0}
   .draftcard .fail{color:var(--bad);font-size:.85rem;margin-top:8px}
+  .kdoor{margin:14px 0 6px;font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--door)}
+  .krow{border:1px solid var(--line);border-left:3px solid var(--door);border-radius:8px;padding:11px 14px;margin:8px 0;background:var(--panel)}
+  .krow .kw{color:var(--soft);font-size:.83rem;margin:4px 0 8px}
+  .krow pre{white-space:pre-wrap;font:12.5px/1.5 Georgia,serif;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin:8px 0}
+  .kbtns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .kbtns input{flex:1;min-width:180px;font-size:.85rem}
+  .kbtns .ok{background:var(--good);color:#0c1510}
+  .kbtns .no{background:transparent;color:var(--bad);border:1px solid var(--bad)}
+  .kfail{color:var(--bad);font-size:.82rem;margin-top:6px;min-height:1em}
+  .hrow{font-size:.82rem;color:var(--soft);padding:5px 2px;border-bottom:1px solid var(--line)}
+  .hrow b.ok{color:var(--good)} .hrow b.no{color:var(--bad)}
   .honest{border-left:3px solid var(--brass);padding:10px 14px;background:var(--panel);border-radius:0 8px 8px 0;color:var(--soft);font-size:.87rem;margin-top:30px}
   .honest b{color:var(--ink)}
   a{color:var(--brass)}
@@ -112,13 +123,19 @@
   <h2 id="draftsHead" style="display:none">5 · The drafts — worded by your local model, guarded by the kernel</h2>
   <div id="drafts"></div>
 
+  <h2>6 · The inbox — where a human turns the keys</h2>
+  <div id="inbox" class="card"><span style="color:var(--soft);font-size:.9rem">Loading the door queue…</span></div>
+  <div id="inboxHistory" style="margin-top:10px"></div>
+
   <div class="honest"><b>Honest wire.</b> The organs are real and live (every link works); the law is real
   (both kernels inlined verbatim — the deciding law 28/28 and the derivation law 22/22 mutation-gated in
   CI); the doors and the grant wall are real refusals, not theatre. <b>"Read the real records" reads this
   device's actual organ databases</b> (same origin, device-local — the whole estate shares
   sjgant80-hub.github.io, so records you created in an organ here are readable here). No records on this
-  device is said plainly, never faked; docsAwaited has no organ signal yet and honestly reads 0. The brain
-  probe reaches your machine only; nothing here leaves your browser.</div>
+  device is said plainly, never faked; docsAwaited has no organ signal yet and honestly reads 0. <b>The
+  inbox is a real record</b> (device-local, persists across reloads): the brain can only QUEUE keys, a
+  refusal needs a reason you could argue with, and a decided key stays decided — the kernel refuses the
+  second turn. The brain probe reaches your machine only; nothing here leaves your browser.</div>
 
   <footer>fallbrain · the assembly: fallcore is the brain · fallrouter routes · didy conducts · fallcorp is
   the shape · the estate is the body — this switches them on for ONE company ·
@@ -413,6 +430,84 @@ function acceptDraft(text) {
 }
 Object.assign(window.FALLBRAIN, { draftBrief, acceptDraft, DRAFT_SYSTEM });
 })();
+(function(){
+// fallbrain · inbox.mjs — the door-queue law: the brain queues, a HUMAN turns the key.
+//
+// The loop's door decisions land here and WAIT. Nothing in this kernel can approve anything —
+// approval is an argument a person makes, and this law only governs what that argument must look
+// like: what may enter a queue, that one job holds one key, that a decided item stays decided, and
+// that a refusal carries a reason you could argue with (a reason under 12 characters is a shrug,
+// not an argument — the exemption-is-a-reason rule, applied to the doors).
+//
+// Pure and total over a plain queue array; the page persists it (IndexedDB, device-local) and
+// renders it. Garbage in → { ok:false, why }, never a corrupted queue.
+
+const DOORS = ['money', 'legal', 'taste', 'client-trust'];
+const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v)) ? v : null;
+const str = (v) => (typeof v === 'string' ? v : '');
+const now_ = (v) => Number.isInteger(v) && v > 0;
+
+/**
+ * Queue a door decision. Pure: returns { ok, queue, entry } with a NEW array. seq makes the id
+ * deterministic (the caller owns the counter). One job holds one key: the same action pending at
+ * the same door is refused — queueing it twice would let one approval look like two.
+ */
+function enqueue(queue, item, seq, nowMs) {
+  if (!Array.isArray(queue)) return { ok: false, why: 'the queue is an array' };
+  const it = obj(item);
+  if (!it) return { ok: false, why: 'not a queueable item' };
+  if (!DOORS.includes(it.door)) return { ok: false, why: `"${str(it.door)}" is not one of the four doors (${DOORS.join(', ')})` };
+  if (!str(it.action).trim()) return { ok: false, why: 'a queued item needs the action the loop decided' };
+  if (!str(it.why).trim()) return { ok: false, why: 'a queued item needs the decision\'s reason — an item that cannot say why it is here does not get a key' };
+  if (!Number.isInteger(seq) || seq < 1) return { ok: false, why: 'seq must be a positive integer (the caller owns the counter)' };
+  if (!now_(nowMs)) return { ok: false, why: 'nowMs must be a real epoch-ms timestamp' };
+  if (queue.some((q) => obj(q) && q.status === 'pending' && q.action === it.action && q.door === it.door)) {
+    return { ok: false, why: `"${it.action}" is already pending at the ${it.door} door — one job holds one key; clear it before queueing it again` };
+  }
+  const entry = {
+    id: 'k' + seq, ts: nowMs, door: it.door, action: it.action,
+    count: Number.isInteger(it.count) && it.count >= 0 ? it.count : 0,
+    why: str(it.why), draft: str(it.draft) || null, draftedBy: str(it.draftedBy) || null,
+    status: 'pending', decidedAt: null, verdict: null, reason: null,
+  };
+  return { ok: true, queue: queue.concat([entry]), entry };
+}
+
+/**
+ * The human key-turn. verdict 'approved' or 'refused'; a REFUSAL requires a reason of at least 12
+ * characters — a sentence you could argue with, never a flag. A decided item stays decided: the
+ * second turn of the same key is refused, because an audit trail where verdicts move is no trail.
+ */
+function turnKey(queue, id, verdict, reason, nowMs) {
+  if (!Array.isArray(queue)) return { ok: false, why: 'the queue is an array' };
+  if (!now_(nowMs)) return { ok: false, why: 'nowMs must be a real epoch-ms timestamp' };
+  if (verdict !== 'approved' && verdict !== 'refused') return { ok: false, why: 'a key turns to "approved" or "refused" — nothing else' };
+  const i = queue.findIndex((q) => obj(q) && q.id === id);
+  if (i < 0) return { ok: false, why: `no item "${str(id)}" in the queue` };
+  const q = queue[i];
+  if (q.status !== 'pending') {
+    return { ok: false, why: `"${q.action}" was already ${q.verdict} — a decided item stays decided; the record does not move` };
+  }
+  const r = str(reason).trim();
+  if (verdict === 'refused' && r.length < 12) {
+    return { ok: false, why: 'a refusal needs a reason you could argue with (at least 12 characters) — under that is a shrug, not an argument' };
+  }
+  const next = queue.slice();
+  next[i] = Object.assign({}, q, { status: 'decided', verdict, reason: r || null, decidedAt: nowMs });
+  return { ok: true, queue: next, entry: next[i] };
+}
+
+/** The doors' live view: pending items per door, oldest first — the queue a key-holder walks. */
+function pending(queue) {
+  if (!Array.isArray(queue)) return { ok: false, why: 'the queue is an array' };
+  const byDoor = { money: [], legal: [], taste: [], 'client-trust': [] };
+  for (const q of queue) if (obj(q) && q.status === 'pending' && byDoor[q.door]) byDoor[q.door].push(q);
+  for (const d of DOORS) byDoor[d].sort((a, b) => a.ts - b.ts);
+  const total = DOORS.reduce((n, d) => n + byDoor[d].length, 0);
+  return { ok: true, byDoor, total, why: total === 0 ? 'no keys waiting — the doors are clear' : `${total} key(s) waiting for a human hand` };
+}
+Object.assign(window.FALLBRAIN, { enqueue, turnKey, pending });
+})();
 /*__KERNEL_END__*/</script>
 <script>
 const $ = (id) => document.getElementById(id);
@@ -439,9 +534,12 @@ $('btnAssemble').onclick = () => {
   renderDoors({});
 };
 
-function renderDoors(queues) {
-  $('doorRow').innerHTML = (COMPANY ? COMPANY.doors : []).map(d =>
-    `<div class="doorbox"><b>${esc(d.door)}</b> · human<div class="q">${queues[d.door] ? esc(queues[d.door]) : ''}</div></div>`).join('');
+function renderDoors() {
+  const p = (window.QSTATE && K.pending(QSTATE.queue).ok) ? K.pending(QSTATE.queue) : null;
+  $('doorRow').innerHTML = ['money', 'legal', 'taste', 'client-trust'].map(d => {
+    const n = p ? p.byDoor[d].length : 0;
+    return `<div class="doorbox"><b>${esc(d)}</b> · human<div class="q">${n ? n + ' key(s) waiting — see the inbox' : ''}</div></div>`;
+  }).join('');
 }
 
 async function probe(url, elId, label) {
@@ -489,6 +587,10 @@ $('btnRun').onclick = () => {
       lines.push('<span class="t-door">◧ tick ' + i + ' · QUEUED at the ' + esc(r.queued) + ' door — ' + esc(r.decision.why) + '</span>');
       queues[r.queued] = (queues[r.queued] ? queues[r.queued] + ' · ' : '') + r.decision.action;
       DECIDED.push({ action: r.decision.action, count: r.decision.count, door: r.queued });
+      // the PERSISTENT key: the inbox law admits it (or refuses the duplicate — one job, one key)
+      const eq = K.enqueue(QSTATE.queue, { door: r.queued, action: r.decision.action, count: r.decision.count, why: r.decision.why }, QSTATE.seq + 1, Date.now());
+      if (eq.ok) { QSTATE.queue = eq.queue; QSTATE.seq += 1; }
+      else lines.push('<span class="t-idle">   ↳ inbox: ' + esc(eq.why) + '</span>');
       // the human hasn't turned the key; that workload waits — clear it from the loop's view so it moves on
       state = clearFor(state, r.decision.action);
       continue;
@@ -501,7 +603,7 @@ $('btnRun').onclick = () => {
     state = clearFor(state, r.decision.action);
   }
   $('log').innerHTML = lines.join('\n');
-  renderDoors(queues);
+  saveQueue().then(() => { renderDoors(); renderInbox(); });
   renderDrafts();
 };
 
@@ -546,12 +648,81 @@ window.wordDraft = async (i) => {
     const g = K.acceptDraft(res.text);
     if (!g.ok) { out.innerHTML = '<div class="fail">guard REFUSED the draft: ' + esc(g.why) + '</div><div class="prov" style="margin-top:6px">the brief it was given: ' + esc(brief.prompt) + '</div>'; return; }
     out.innerHTML = '<pre>' + esc(g.text) + '</pre><div class="prov" style="margin-top:6px">worded by ' + esc(res.model) + ' on this device · ' + esc(g.why) + ' · facts from the brief only — review before sending (this is the door\'s job)</div>';
+    // attach the guarded draft to its waiting key, so the human reviews words + why together
+    const k = QSTATE.queue.find((q) => q && q.status === 'pending' && q.action === d.action);
+    if (k) { k.draft = g.text; k.draftedBy = res.model; await saveQueue(); renderInbox(); }
   } catch (e) {
     out.innerHTML = '<div class="fail">local model unreachable from this page (' + esc(String(e.message || e)) + ').</div>'
       + '<div class="prov" style="margin-top:6px">Fix: run Ollama with OLLAMA_ORIGINS="' + esc(location.origin) + '" (or use the page locally). The BRIEF the model would receive — a human can word it directly:</div>'
       + '<pre>' + esc(brief.prompt) + '</pre>';
   }
 };
+// ── the persistent door queue: fallbrain's own device-local store, the inbox law governs it ──────
+window.QSTATE = { seq: 0, queue: [] };
+function brainDb() {
+  return new Promise((res) => {
+    const q = indexedDB.open('fallbrain.v1', 1);
+    q.onupgradeneeded = (e) => { const db = e.target.result; if (!db.objectStoreNames.contains('doorQueue')) db.createObjectStore('doorQueue'); };
+    q.onsuccess = () => res(q.result); q.onerror = () => res(null);
+  });
+}
+async function loadQueue() {
+  const db = await brainDb(); if (!db) return;
+  await new Promise((res) => {
+    try { const g = db.transaction('doorQueue', 'readonly').objectStore('doorQueue').get('main');
+      g.onsuccess = () => { const s = g.result; if (s && Array.isArray(s.queue)) QSTATE = { seq: s.seq || 0, queue: s.queue }; res(); };
+      g.onerror = () => res();
+    } catch (e) { res(); }
+  });
+  db.close();
+}
+async function saveQueue() {
+  const db = await brainDb(); if (!db) return;
+  await new Promise((res) => {
+    try { const t = db.transaction('doorQueue', 'readwrite'); t.objectStore('doorQueue').put({ seq: QSTATE.seq, queue: QSTATE.queue }, 'main');
+      t.oncomplete = () => res(); t.onerror = () => res();
+    } catch (e) { res(); }
+  });
+  db.close();
+}
+function fmtWhen(ts) { try { return new Date(ts).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch (e) { return String(ts); } }
+function renderInbox() {
+  const p = K.pending(QSTATE.queue);
+  if (!p.ok) { $('inbox').innerHTML = '<span class="kfail">' + esc(p.why) + '</span>'; return; }
+  let html = '<div style="color:var(--soft);font-size:.88rem">' + esc(p.why) + '</div>';
+  for (const door of ['money', 'legal', 'taste', 'client-trust']) {
+    const items = p.byDoor[door]; if (!items.length) continue;
+    html += '<div class="kdoor">' + esc(door) + ' door · ' + items.length + ' waiting</div>' + items.map((k) => `
+      <div class="krow">
+        <b>${esc(k.action)}</b> <span class="prov">· ${esc(String(k.count))} item(s) · queued ${esc(fmtWhen(k.ts))} · ${k.draft ? 'draft attached (worded by ' + esc(k.draftedBy || 'local model') + ')' : 'no draft yet — the ✎ buttons above word one'}</span>
+        <div class="kw">${esc(k.why)}</div>
+        ${k.draft ? '<pre>' + esc(k.draft) + '</pre>' : ''}
+        <div class="kbtns">
+          <button class="ok" onclick="keyTurn('${esc(k.id)}','approved')">✓ approve — turn the key</button>
+          <input id="reason-${esc(k.id)}" placeholder="refusal reason (an argument, not a shrug — 12+ chars)">
+          <button class="no" onclick="keyTurn('${esc(k.id)}','refused')">✗ refuse</button>
+        </div>
+        <div class="kfail" id="kfail-${esc(k.id)}"></div>
+      </div>`).join('');
+  }
+  $('inbox').innerHTML = html;
+  const decided = QSTATE.queue.filter((q) => q && q.status === 'decided').sort((a, b) => (b.decidedAt || 0) - (a.decidedAt || 0)).slice(0, 8);
+  $('inboxHistory').innerHTML = decided.length
+    ? '<div class="prov" style="margin-bottom:4px">the record — decided keys stay decided:</div>' + decided.map((k) =>
+      `<div class="hrow"><b class="${k.verdict === 'approved' ? 'ok' : 'no'}">${esc(k.verdict)}</b> · ${esc(k.action)} at the ${esc(k.door)} door · ${esc(fmtWhen(k.decidedAt))}${k.reason ? ' · “' + esc(k.reason) + '”' : ''}</div>`).join('')
+    : '';
+}
+window.keyTurn = async (id, verdict) => {
+  const reasonEl = $('reason-' + id);
+  const r = K.turnKey(QSTATE.queue, id, verdict, reasonEl ? reasonEl.value : '', Date.now());
+  const fail = $('kfail-' + id);
+  if (!r.ok) { if (fail) fail.textContent = r.why; return; }
+  QSTATE.queue = r.queue;
+  await saveQueue();
+  renderInbox(); renderDoors();
+};
+loadQueue().then(() => { renderInbox(); renderDoors(); });
+
 function clearFor(s, action) {
   const map = { 'process-cooling-cancellation': 'coolingExpired', 'draft-complaint-response': 'complaintsOpen',
     'draft-cdd-verification': 'cddPending', 'draft-kyc-review': 'reviewsDue',
