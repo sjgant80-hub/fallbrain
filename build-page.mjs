@@ -8,15 +8,23 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const kernel = readFileSync(join(here, 'brain.mjs'), 'utf8')
+const strip = (f) => readFileSync(join(here, f), 'utf8')
   .replace(/^export default .*$/m, '')
   .replace(/^export /gm, '')
   .replace(/<\/script/gi, '<\\/script');
+const brain = strip('brain.mjs');
+const state = strip('state.mjs');
 
+// each kernel gets its OWN scope — both declare helper consts (obj etc.) that would collide in one
 const block = `/*__KERNEL_START__*/
+window.FALLBRAIN = {};
 (function(){
-${kernel.trim()}
-window.FALLBRAIN = { DOORS, CAPABILITIES, validSpec, assemble, nextAction, tick };
+${brain.trim()}
+Object.assign(window.FALLBRAIN, { DOORS, CAPABILITIES, validSpec, assemble, nextAction, tick });
+})();
+(function(){
+${state.trim()}
+Object.assign(window.FALLBRAIN, { deriveState, ORGAN_DBS });
 })();
 /*__KERNEL_END__*/`;
 
@@ -25,4 +33,4 @@ const html = readFileSync(htmlPath, 'utf8');
 const re = /\/\*__KERNEL_START__\*\/[\s\S]*?\/\*__KERNEL_END__\*\//;
 if (!re.test(html)) { console.error('REFUSED: markers not found'); process.exit(1); }
 writeFileSync(htmlPath, html.replace(re, () => block));
-console.log(`inlined ${(kernel.length / 1024).toFixed(1)}KB of gated law into index.html`);
+console.log(`inlined ${((brain.length + state.length) / 1024).toFixed(1)}KB of gated law (deciding + derivation) into index.html`);

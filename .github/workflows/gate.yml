@@ -8,16 +8,25 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: "20" }
 
-      - name: the law against its falsifiable examples
+      - name: the deciding law against its falsifiable examples
         run: node --test brain.test.mjs
 
+      - name: the derivation law (real records → day-state) against its examples
+        run: node --test state.test.mjs
+
       # ⚑ Pinned. An unpinned gate is a gate somebody else can change.
-      - name: witness — try to break the law (must be CLEAN)
+      - name: witness — try to break the deciding law (must be CLEAN)
         run: |
           git clone --depth 1 --branch v0.6 https://github.com/sjgant80-hub/witness.git /tmp/witness
           node /tmp/witness/witness.mjs mutate brain.mjs \
             --timeout 60000 --cap 800 \
             --test node --test brain.test.mjs
+
+      - name: witness — try to break the derivation law (must be CLEAN)
+        run: |
+          node /tmp/witness/witness.mjs mutate state.mjs \
+            --timeout 60000 --cap 800 \
+            --test node --test state.test.mjs
 
       - name: the live page still carries the gated law
         run: |

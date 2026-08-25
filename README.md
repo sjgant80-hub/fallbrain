@@ -35,9 +35,19 @@ the proven law.**
 
 ## Honest limits
 
-The organs are real and live; the law, doors and grant wall are real refusals. The **day state** on
-the page is demo input — wiring the loop to read each organ's own device-local records is per-organ
-work, and the page says so rather than faking it. The four doors (money, legal, taste, client-trust)
-are held by a human, always: the brain queues, a person turns the key.
+The organs are real and live; the law, doors and grant wall are real refusals. **"Read the real
+records" reads this device's actual organ databases** — the whole estate shares one origin
+(sjgant80-hub.github.io) and the organs store device-local IndexedDB, so records you created in an
+organ are readable here. The derivation law (`state.mjs`, witness-gated **22/22, zero baselines**)
+turns raw records into the day-state by the organs' own semantics — and its verified DB map records
+a real trap: the family naming **splits** (five organs use `.v1`, five use `-v1`; an assumed
+convention would have silently read half the estate as empty). No records on a device is said
+plainly, never faked; docsAwaited has no organ signal yet and honestly reads 0. The four doors
+(money, legal, taste, client-trust) are held by a human, always: the brain queues, a person turns
+the key.
+
+**Proven end-to-end:** a claimant seeded through fallclaimonboard's own UI (CDD pending, expired
+cooling clock, open complaint) → fallbrain read the organ's actual IndexedDB → derived the counts
+exactly → the loop queued the statutory work at the legal and client-trust doors.
 
 MIT · Built with Konomi (created by Thomas Frumkin · [konomi-systems.com](https://konomi-systems.com))
