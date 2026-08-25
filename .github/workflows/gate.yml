@@ -28,6 +28,15 @@ jobs:
             --timeout 60000 --cap 800 \
             --test node --test state.test.mjs
 
+      - name: the drafting law (briefs + the guard) against its examples
+        run: node --test draft.test.mjs
+
+      - name: witness — try to break the drafting law (must be CLEAN)
+        run: |
+          node /tmp/witness/witness.mjs mutate draft.mjs \
+            --timeout 60000 --cap 800 \
+            --test node --test draft.test.mjs
+
       - name: the live page still carries the gated law
         run: |
           cp index.html /tmp/shipped.html

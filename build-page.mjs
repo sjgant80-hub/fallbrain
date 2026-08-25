@@ -14,8 +14,9 @@ const strip = (f) => readFileSync(join(here, f), 'utf8')
   .replace(/<\/script/gi, '<\\/script');
 const brain = strip('brain.mjs');
 const state = strip('state.mjs');
+const draft = strip('draft.mjs');
 
-// each kernel gets its OWN scope — both declare helper consts (obj etc.) that would collide in one
+// each kernel gets its OWN scope — they all declare helper consts (obj etc.) that would collide in one
 const block = `/*__KERNEL_START__*/
 window.FALLBRAIN = {};
 (function(){
@@ -26,6 +27,10 @@ Object.assign(window.FALLBRAIN, { DOORS, CAPABILITIES, validSpec, assemble, next
 ${state.trim()}
 Object.assign(window.FALLBRAIN, { deriveState, ORGAN_DBS });
 })();
+(function(){
+${draft.trim()}
+Object.assign(window.FALLBRAIN, { draftBrief, acceptDraft, DRAFT_SYSTEM });
+})();
 /*__KERNEL_END__*/`;
 
 const htmlPath = join(here, 'index.html');
@@ -33,4 +38,4 @@ const html = readFileSync(htmlPath, 'utf8');
 const re = /\/\*__KERNEL_START__\*\/[\s\S]*?\/\*__KERNEL_END__\*\//;
 if (!re.test(html)) { console.error('REFUSED: markers not found'); process.exit(1); }
 writeFileSync(htmlPath, html.replace(re, () => block));
-console.log(`inlined ${((brain.length + state.length) / 1024).toFixed(1)}KB of gated law (deciding + derivation) into index.html`);
+console.log(`inlined ${((brain.length + state.length + draft.length) / 1024).toFixed(1)}KB of gated law (deciding + derivation + drafting) into index.html`);
