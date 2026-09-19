@@ -56,6 +56,19 @@ jobs:
             --timeout 60000 --cap 800 \
             --test node --test writeback.test.mjs
 
+      - name: the durable-memory laws (envelope seal/open + the disk round-trip) against their examples
+        run: node --test store.test.mjs disk.test.mjs
+
+      - name: witness — try to break the envelope law (must be CLEAN)
+        run: |
+          node /tmp/witness/witness.mjs mutate store.mjs \
+            --timeout 60000 --cap 800 \
+            --test node --test store.test.mjs
+      # disk.mjs is the UNGATED I/O wire (real gzip via CompressionStream + File System Access + the
+      # download fallback) — the same gated-kernel / ungated-glue split this repo uses everywhere. Its
+      # browser-only branches (showSaveFilePicker/handle read-write) cannot be mutation-tested in node,
+      # so it is proven by its node round-trip test above + the live save→wipe→restore walk, NOT witness.
+
       - name: the live page still carries the gated law
         run: |
           cp index.html /tmp/shipped.html
