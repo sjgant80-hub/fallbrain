@@ -153,6 +153,15 @@
   <p class="sub">Section 8's receipts used to vanish once you reloaded the page — a real gap, named honestly rather than left silent. This persists every one (device-local, same store discipline as the inbox), each entry only ever admitted after it verifies against its own hash, chained to the one before it so nothing in between can be edited unnoticed. Below it: the real escalation signal derived from whatever is actually in the ledger right now — where the local model keeps having to hand off to the limb, which is the honest, checkable version of "where a task-specific model would pay off." Empty until you run section 8 for real.</p>
   <div id="ledgerOut" class="card"></div>
 
+  <h2>10 · Own your memory file — the company survives a wipe</h2>
+  <p class="sub">Everything above (the door queue, the ledger) lives in IndexedDB only — a routine "clear browsing data" erases it with no warning and no way back. This closes that gap: compress the whole company's real state into one file, verified with a receipt the same shape every other receipt in this app already uses, and keep it on your own disk. No pricing anywhere on this page.</p>
+  <div class="row" style="margin-bottom:10px">
+    <button class="ghost" id="btnBackup">⤓ Back up the company to disk</button>
+    <label class="ghost" style="display:inline-flex;align-items:center;cursor:pointer">⤒ Restore from disk<input id="fileRestoreCompany" type="file" accept="application/json" style="display:none"></label>
+    <button class="ghost" id="btnSimulateWipe" style="color:var(--bad)">Simulate a real wipe (clear this app's IndexedDB)</button>
+  </div>
+  <div id="backupOut" class="card"></div>
+
   <div class="honest"><b>Honest wire.</b> The organs are real and live (every link works); the law is real
   (both kernels inlined verbatim — the deciding law 28/28 and the derivation law 22/22 mutation-gated in
   CI); the doors and the grant wall are real refusals, not theatre. <b>"Read the real records" reads this
@@ -1177,6 +1186,405 @@ function escalationSignal(chain) {
 }
 Object.assign(window.FALLBRAIN, { escalationSignal, MIN_SAMPLE });
 })();
+(function(){
+// fold.mjs — the primorial fold codec + Mersenne-127 shield. The REAL, verified core of
+// Thomas's "Scotty Starship Ninjaprise": a bloom (a state over 7 prime rings) folds
+// LOSSLESSLY into a single integer and unfolds back — by the Fundamental Theorem of
+// Arithmetic (subsets) and the Chinese Remainder Theorem (full states). Empty bloom = 1
+// (unity), full bloom = 510510 (the primorial). Pure, total, mutation-gated.
+//
+// What is REAL here (and only this): the encoding. The song's "pair theorem" (two inverse
+// blooms heal each other) was scouted and did NOT beat a random control — where it appears
+// to work it is the tautology union(a,reflect(a)) = 1−a+a² ≥ 0.75 — so it is held as poem,
+// NOT built. This file is the part that survives contact with arithmetic.
+
+const RINGS = [2, 3, 5, 7, 11, 13, 17];   // the seven prime rings
+const PRIMORIAL = 510510;                  // 17# = ∏RINGS  (the MAP / the FIELD)
+const SHIELD = 127;                        // 2^7 − 1 = Mersenne M7  (the SHIELD)
+const STATES = 128;                        // 2^7 = |divisors(510510)| — the bloom lattice
+// invariant, checked in tests: SHIELD === STATES − 1 === count of non-empty blooms.
+
+// ── subset codec: which rings are LIT → a squarefree divisor of 510510 (FTA-lossless) ──
+
+// A subset of RINGS (given as the lit primes) folds to the product of those primes.
+// [] → 1 (the empty bloom = unity); all seven → 510510 (the full bloom = primorial).
+function foldSubset(litPrimes) {
+  if (!Array.isArray(litPrimes)) return 1;
+  let n = 1;
+  const seen = new Set();
+  for (const p of litPrimes) {
+    if (RINGS.includes(p) && !seen.has(p)) { n *= p; seen.add(p); }
+  }
+  return n;
+}
+
+// Unfold a squarefree divisor of 510510 back to its lit rings (which primes divide it).
+function unfoldSubset(n) {
+  const v = toInt(n);
+  const out = [];
+  for (const p of RINGS) if (v % p === 0) out.push(p);
+  return out;
+}
+
+// Is n a valid bloom — a divisor of 510510 (squarefree over the seven rings)?
+function isBloom(n) {
+  const v = toInt(n);
+  if (v < 1) return false;
+  return PRIMORIAL % v === 0;
+}
+
+// ── CRT residue codec: a FULL state (one residue per ring) ⇄ one integer in [0,510510) ──
+
+// Fold seven residues (r_i is taken mod p_i) into the unique n ∈ [0,510510) with
+// n ≡ r_i (mod p_i) for every ring. Lossless by the Chinese Remainder Theorem.
+function foldResidues(residues) {
+  const r = normalizeResidues(residues);
+  let n = 0;
+  for (let i = 0; i < RINGS.length; i++) {
+    const p = RINGS[i];
+    const M = PRIMORIAL / p;              // ∏ of the other primes
+    const y = modInverse(M % p, p);       // M·y ≡ 1 (mod p)
+    n = (n + r[i] * M * y) % PRIMORIAL;
+  }
+  return ((n % PRIMORIAL) + PRIMORIAL) % PRIMORIAL;
+}
+
+// Unfold an integer into its seven ring-residues: n mod each prime.
+function unfoldResidues(n) {
+  const v = ((toInt(n) % PRIMORIAL) + PRIMORIAL) % PRIMORIAL;
+  return RINGS.map((p) => v % p);
+}
+
+// ── the Mersenne-127 shield: a cheap corruption guard (the SHIELD reduction) ──
+
+function shield(n) {
+  return (((toInt(n) % SHIELD) + SHIELD) % SHIELD);
+}
+function shielded(n) {
+  const v = toInt(n);
+  return { n: v, chk: shield(v) };
+}
+function verifyShield(s) {
+  if (!s || typeof s !== 'object') return false;
+  return Number.isInteger(s.n) && shield(s.n) === s.chk;
+}
+
+// ── helpers (total, defensive — a hostile input yields a safe value, never a throw) ──
+
+function toInt(x) {
+  if (typeof x === 'number') return Number.isFinite(x) ? Math.trunc(x) : 0;
+  try { const n = Number(x); return Number.isFinite(n) ? Math.trunc(n) : 0; } catch { return 0; }
+}
+
+function normalizeResidues(residues) {
+  const arr = Array.isArray(residues) ? residues : [];
+  return RINGS.map((p, i) => {
+    const v = toInt(arr[i]);
+    return ((v % p) + p) % p;             // fold each residue into [0,p)
+  });
+}
+
+// Modular inverse of a mod p (p a small prime) by exhaustive search — total: returns 0 if
+// none (only when a ≡ 0, which never happens for M mod p since the primes are coprime).
+function modInverse(a, p) {
+  const aa = ((a % p) + p) % p;
+  for (let y = 1; y < p; y++) if ((aa * y) % p === 1) return y;
+  return 0;
+}
+Object.assign(window.FALLBRAIN, { RINGS, PRIMORIAL, SHIELD, STATES, foldSubset, unfoldSubset, isBloom, foldResidues, unfoldResidues, shield, shielded, verifyShield });
+})();
+(function(){
+// fallbrain · store.mjs — the durable STORE under fallbrain's own state: the door queue and the
+// receipt ledger currently live ONLY in IndexedDB, which a routine browser-data clear erases with
+// no warning and no recovery — exactly the gap Simon named ("apps need harddrive if webgpu gets
+// wiped"). This is that file's envelope law: a tamper-evident wrapper around a compressed snapshot
+// of fallbrain's real state, so a memory file the user keeps on their own disk can be trusted on
+// the way back in, not just written on the way out.
+//
+// SAME LAW as fall-remember's own store.mjs (same repo family, same organ pattern, konomified into
+// each repo that needs it) — adapted here to REUSE WHAT THIS REPO ALREADY HAS rather than importing
+// a sibling organ this repo doesn't otherwise use:
+//   · fall-remember's copy uses address() (its own 128-bit, non-cryptographic hash). fallbrain has
+//     no FallRemember instance to wrap and no address() of its own — but it already vendors a REAL
+//     sha256 + canon (cascade.mjs, used by every receipt this repo already seals: cascadeReceipt,
+//     triageReceipt, ledger.mjs's appendReceipt). Reusing THAT is more honest than importing a
+//     sibling repo's hash this repo doesn't otherwise touch, and it's cryptographically stronger.
+//   · geometric-computer's fold.mjs shield()/shielded()/verifyShield() (vendored, re-gated fresh in
+//     this repo too) — the same cheap corruption pre-check, layered under the real sha256 check,
+//     the same two-teeth shape as fall-remember's senses.mjs and this envelope's own sibling copy.
+//     fold.mjs's OTHER functions (foldSubset/foldResidues, a bounded 7-dimensional bloom/residue
+//     encoder) do not apply to arbitrary state and are not used that way here — real compression is
+//     disk.mjs's job (CompressionStream), kept separate on purpose.
+//
+// AUDIT-SHAPED: the envelope IS a receipt in the same {...,hash} self-verifying shape every other
+// receipt in this repo already uses (cascadeReceipt/triageReceipt/ledger entries) — sealed once,
+// self-verified on the way back in, so a restored snapshot is VERIFIABLE, not merely present.
+//
+// Pure and total: garbage in -> { ok:false, why }, never a throw. No I/O, no clock (createdAt is
+// passed in by the caller, same discipline as every receipt-sealing function in this repo).
+
+const { sha256, canon } = window.FALLBRAIN;
+const { shielded, verifyShield } = window.FALLBRAIN;
+
+const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
+const isStr = (v) => typeof v === 'string' && v.length > 0;
+const isInt = (v) => Number.isInteger(v) && v >= 0;
+
+const KIND = 'fallbrain-memory-snapshot';
+const VERSION = 1;
+
+function hashOf(text) {
+  // sha256 can only fail on a non-string, which every call site here already guards against — but
+  // it is still handled honestly (never assumed) rather than trusted blind.
+  const h = sha256(text);
+  return h.ok ? h.hash : null;
+}
+
+// The envelope is a RECEIPT, same shape as every other receipt in this repo: seal computes a hash
+// over every OTHER field via canon() (the same canonical-JSON helper cascadeReceipt/triageReceipt
+// already use), verify recomputes it and refuses on any disagreement — so a tamper to createdAt or
+// compressedBytes (fields the payload hash alone never touches) is caught too.
+function receiptHashOf(e) {
+  return hashOf(canon({ v: e.v, kind: e.kind, createdAt: e.createdAt, addr: e.addr, shieldN: e.shield.n, shieldChk: e.shield.chk, rawBytes: e.rawBytes, compressedBytes: e.compressedBytes, compressed: e.compressed }));
+}
+
+function shieldOf(addr) {
+  // shield() takes an integer; derive one from the first 32 bits of the sha256 hex — deterministic,
+  // and independent enough of the full check to be worth a second look (a tamper that only patches
+  // the trailing hex of addr would still usually flip these leading bits too, but the real defence
+  // is that BOTH checks must pass, not that either alone is unbeatable).
+  return shielded(parseInt(addr.slice(0, 8), 16));
+}
+
+/**
+ * sealEnvelope({ json, compressedB64, createdAt }) — json: the exact string that was compressed
+ * (JSON.stringify of fallbrain's real state: door queue + receipt ledger). compressedB64: the
+ * base64 of the REAL compressed bytes (disk.mjs's job to produce — this function never compresses
+ * anything itself). Returns the tamper-evident envelope ready to write to one file.
+ */
+function sealEnvelope(input) {
+  const { json, compressedB64, createdAt } = isObj(input) ? input : {};
+  if (!isStr(json)) return { ok: false, why: 'the envelope needs the exact JSON string that was compressed' };
+  if (!isStr(compressedB64)) return { ok: false, why: 'the envelope needs the compressed payload, base64-encoded' };
+  if (!isStr(createdAt)) return { ok: false, why: 'the envelope needs a createdAt timestamp' };
+  const addr = hashOf(json);
+  if (!addr) return { ok: false, why: 'could not hash the state' };
+  const shield = shieldOf(addr);
+  const body = {
+    v: VERSION,
+    kind: KIND,
+    createdAt,
+    addr,
+    shield,
+    rawBytes: json.length,
+    compressedBytes: compressedB64.length,
+    compressed: compressedB64,
+  };
+  return { ok: true, envelope: { ...body, receiptHash: receiptHashOf(body) } };
+}
+
+/**
+ * openEnvelope(envelope, decompressedJson) — decompressedJson: what disk.mjs got back out after
+ * decompressing envelope.compressed (this function never decompresses anything itself). Verifies
+ * the receipt hash (every field), then BOTH teeth on the payload: the shield (cheap, fast) and the
+ * full sha256 (the real check) must agree with what the decompressed bytes actually hash to —
+ * never trusts the envelope's own claim about itself.
+ */
+function openEnvelope(envelope, decompressedJson) {
+  const e = isObj(envelope) ? envelope : null;
+  if (!e) return { ok: false, why: 'not a snapshot envelope' };
+  if (e.kind !== KIND) return { ok: false, why: `not a ${KIND} envelope` };
+  if (e.v !== VERSION) return { ok: false, why: `unknown snapshot version ${String(e.v)}` };
+  if (!isStr(e.addr)) return { ok: false, why: 'the envelope carries no address' };
+  if (!isObj(e.shield)) return { ok: false, why: 'the envelope carries no shield' };
+  if (!isInt(e.rawBytes)) return { ok: false, why: 'the envelope carries no rawBytes count' };
+  if (!isInt(e.compressedBytes)) return { ok: false, why: 'the envelope carries no compressedBytes count' };
+  if (!isStr(e.receiptHash)) return { ok: false, why: 'the envelope carries no receipt hash' };
+  if (!isStr(decompressedJson)) return { ok: false, why: 'nothing was decompressed to check against the envelope' };
+
+  const { receiptHash, ...body } = e;
+  if (receiptHashOf(body) !== receiptHash) return { ok: true, valid: false, why: 'the envelope\'s own receipt hash does not match its fields — the envelope itself was edited after it was sealed' };
+
+  const realAddr = hashOf(decompressedJson);
+  if (!realAddr) return { ok: true, valid: false, why: 'could not hash the decompressed bytes' };
+  if (!verifyShield(e.shield)) return { ok: true, valid: false, why: 'the shield itself is malformed — refused before the full check even runs' };
+  const shieldNow = shieldOf(realAddr);
+  if (shieldNow.chk !== e.shield.chk) return { ok: true, valid: false, why: 'the shield does not match the decompressed bytes — corruption caught by the cheap check first' };
+  if (realAddr !== e.addr) return { ok: true, valid: false, why: 'the decompressed bytes do not match the envelope\'s address — tampered or corrupted after it was written' };
+  if (decompressedJson.length !== e.rawBytes) return { ok: true, valid: false, why: 'the decompressed length does not match what was sealed' };
+  return { ok: true, valid: true, why: 'snapshot intact — both the shield and the full hash agree with the decompressed bytes' };
+}
+
+/**
+ * parseSnapshotFile(raw) — raw: whatever JSON.parse produced from a file the user picked. Refuses
+ * anything that isn't shaped like a real envelope before disk.mjs ever tries to decompress it — a
+ * malformed file should never reach the decompressor at all.
+ */
+function parseSnapshotFile(raw) {
+  if (!isObj(raw)) return { ok: false, why: 'not a fallbrain snapshot file (not an object)' };
+  if (raw.kind !== KIND) return { ok: false, why: `not a ${KIND} file` };
+  if (raw.v !== VERSION) return { ok: false, why: `unsupported snapshot version ${String(raw.v)}` };
+  if (!isStr(raw.compressed)) return { ok: false, why: 'the file carries no compressed payload' };
+  return { ok: true, envelope: raw };
+}
+Object.assign(window.FALLBRAIN, { STORE_KIND: KIND, STORE_VERSION: VERSION, sealEnvelope, openEnvelope, parseSnapshotFile, receiptHashOf });
+})();
+(function(){
+// fall-remember · disk.mjs — the durable disk I/O: real gzip compression, a real user-granted disk
+// handle where the browser offers one, and a universal export/import file fallback everywhere else.
+// Ungated glue around store.mjs's gated envelope law — same split every claudedidy CLI uses around
+// a gated kernel (orders.mjs/preflight.mjs, cascade.mjs/precedent-cli.mjs, ledger.mjs/the page).
+//
+// REAL compression, checked empirically before writing this file, not assumed: CompressionStream /
+// DecompressionStream ('gzip') are a W3C standard, identical API in Node 18+ and every evergreen
+// browser (Blob/Response/btoa/atob too) — verified live in node directly: a 600-byte string
+// compressed to 39 bytes and decompressed back byte-exact before a single line of this was written.
+//
+// HONEST, stated on the surface that uses this, not just in a comment: the File System Access API
+// (showSaveFilePicker/showOpenFilePicker, seamless re-save to the same granted file) is Chromium-
+// family only as of the check run before this file was written — re-verify before claiming
+// universal support, never imply it. The export/import fallback works in every browser and is the
+// one this estate already ships in miniature (fallbrain's receipt downloads) — same "own your
+// file" shape, applied to the whole memory store instead of one receipt.
+
+const { sealEnvelope, openEnvelope, parseSnapshotFile } = window.FALLBRAIN;
+
+function bytesToBase64(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+function base64ToBytes(b64) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+/** gzipCompress(text) — real gzip, real bytes reduced, base64-encoded for a single JSON file. */
+async function gzipCompress(text) {
+  const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
+  const buf = await new Response(stream).arrayBuffer();
+  return bytesToBase64(new Uint8Array(buf));
+}
+
+/** gzipDecompress(base64) — the exact inverse. Throws on genuinely corrupt gzip bytes (a real
+ *  decompression failure) — the caller (makeSnapshot/restoreSnapshot below) is where that's
+ *  turned into an honest {ok:false} rather than an uncaught exception reaching the page. */
+async function gzipDecompress(base64) {
+  const bytes = base64ToBytes(base64);
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+  const buf = await new Response(stream).arrayBuffer();
+  return new TextDecoder().decode(buf);
+}
+
+/**
+ * hasFileSystemAccess() — the honest capability check this estate's own doctrine demands (never
+ * imply a capability the running browser doesn't have). Chromium-family only, checked live, not
+ * sniffed by user-agent string.
+ */
+function hasFileSystemAccess() {
+  return typeof window !== 'undefined' && typeof window.showSaveFilePicker === 'function';
+}
+
+/**
+ * makeSnapshot(stateObject) — stateObject: anything JSON-serialisable (fall-remember's own
+ * toJSON() output, or any other real app state — this file does not assume FallRemember
+ * specifically, on purpose, so the SAME primitive can back fall-remember's own memory and a
+ * shipped app's own IndexedDB-backed state, e.g. fallbrain's). Returns the sealed, compressed
+ * envelope ready to write to one file, or {ok:false} on a genuine failure (never throws).
+ */
+async function makeSnapshot(stateObject) {
+  let json;
+  try { json = JSON.stringify(stateObject); } catch (e) { return { ok: false, why: 'the state is not JSON-serialisable: ' + e.message }; }
+  if (typeof json !== 'string' || json === undefined) return { ok: false, why: 'the state serialised to nothing (a function or undefined at the top level)' };
+  let compressedB64;
+  try { compressedB64 = await gzipCompress(json); } catch (e) { return { ok: false, why: 'compression failed: ' + e.message }; }
+  const sealed = sealEnvelope({ json, compressedB64, createdAt: new Date().toISOString() });
+  if (!sealed.ok) return sealed;
+  return { ok: true, envelope: sealed.envelope };
+}
+
+/**
+ * restoreSnapshot(rawParsedFile) — rawParsedFile: whatever JSON.parse produced from a file the
+ * user picked or a granted handle read. Decompresses, verifies BOTH teeth against the gated law
+ * (store.mjs), and only then hands back the real state object. Refuses (never throws) on any
+ * malformed file, wrong version, or failed verification — a caller gets {ok:false, why} for every
+ * one of those, and {ok:true, valid:false, why} specifically for a file that parses and decompresses
+ * but fails the tamper/corruption check, so the two failure classes are never confused.
+ */
+async function restoreSnapshot(rawParsedFile) {
+  const parsed = parseSnapshotFile(rawParsedFile);
+  if (!parsed.ok) return parsed;
+  let json;
+  try { json = await gzipDecompress(parsed.envelope.compressed); }
+  catch (e) { return { ok: false, why: 'the compressed payload will not decompress — the file is corrupt: ' + e.message }; }
+  const v = openEnvelope(parsed.envelope, json);
+  if (!v.ok) return v;
+  if (!v.valid) return { ok: true, valid: false, why: v.why };
+  let state;
+  try { state = JSON.parse(json); } catch (e) { return { ok: true, valid: false, why: 'decompressed bytes verified but do not parse as JSON: ' + e.message }; }
+  return { ok: true, valid: true, state, envelope: parsed.envelope };
+}
+
+// ---- File System Access API path (Chromium-family; capability-checked by the caller) ----
+
+/** pickSaveHandle(suggestedName) — the ONE user-permission moment; after this, saveToHandle can
+ *  re-save silently to the same file, which is the whole point (no repeated file-picker nagging). */
+async function pickSaveHandle(suggestedName = 'fall-remember-memory.json') {
+  if (!hasFileSystemAccess()) return { ok: false, why: 'File System Access is not available in this browser' };
+  try {
+    const handle = await window.showSaveFilePicker({ suggestedName, types: [{ description: 'Fall-remember snapshot', accept: { 'application/json': ['.json'] } }] });
+    return { ok: true, handle };
+  } catch (e) { return { ok: false, why: e && e.name === 'AbortError' ? 'the user cancelled the file picker' : 'could not get a save handle: ' + e.message }; }
+}
+
+async function pickOpenHandle() {
+  if (typeof window === 'undefined' || typeof window.showOpenFilePicker !== 'function') return { ok: false, why: 'File System Access open-picker is not available in this browser' };
+  try {
+    const [handle] = await window.showOpenFilePicker({ types: [{ description: 'Fall-remember snapshot', accept: { 'application/json': ['.json'] } }] });
+    return { ok: true, handle };
+  } catch (e) { return { ok: false, why: e && e.name === 'AbortError' ? 'the user cancelled the file picker' : 'could not get an open handle: ' + e.message }; }
+}
+
+async function saveToHandle(handle, envelope) {
+  try {
+    const w = await handle.createWritable();
+    await w.write(JSON.stringify(envelope));
+    await w.close();
+    return { ok: true };
+  } catch (e) { return { ok: false, why: 'writing to the granted file failed: ' + e.message }; }
+}
+
+async function loadFromHandle(handle) {
+  try {
+    const file = await handle.getFile();
+    const text = await file.text();
+    return { ok: true, parsed: JSON.parse(text) };
+  } catch (e) { return { ok: false, why: 'reading the granted file failed: ' + e.message }; }
+}
+
+// ---- universal fallback: a real download + a real <input type=file> upload, every browser ----
+
+function downloadEnvelope(envelope, filename = 'fall-remember-memory.json') {
+  const blob = new Blob([JSON.stringify(envelope, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function readUploadedFile(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => { try { resolve({ ok: true, parsed: JSON.parse(reader.result) }); } catch (e) { resolve({ ok: false, why: 'not valid JSON: ' + e.message }); } };
+    reader.onerror = () => resolve({ ok: false, why: 'could not read the file' });
+    reader.readAsText(file);
+  });
+}
+Object.assign(window.FALLBRAIN, { gzipCompress, gzipDecompress, hasFileSystemAccess, makeSnapshot, restoreSnapshot, pickSaveHandle, pickOpenHandle, saveToHandle, loadFromHandle, downloadEnvelope, readUploadedFile });
+})();
 /*__KERNEL_END__*/</script>
 <script>
 const $ = (id) => document.getElementById(id);
@@ -1706,6 +2114,55 @@ $('btnTriage').onclick = async () => {
     $('triageDlMsg').textContent = (window.FALLBRAIN.verifyTriageReceipt(receipt).valid ? '✓ ' : '⚠ ') + 'Downloaded — ' + (signed ? 'signed and ' : '') + 'tamper-evident.';
   };
 };
+
+// ── section 10: own your memory file — the REAL company state (door queue + ledger), durable ──────
+let backupHandle = null; // set once File System Access grants one, for seamless re-save
+function backupSay(html) { const el = $('backupOut'); if (el) el.innerHTML = html; }
+async function realCompanyState() {
+  const ledger = await loadLedger();
+  return { doorQueue: { seq: QSTATE.seq, queue: QSTATE.queue }, receiptLedger: ledger };
+}
+$('btnBackup').onclick = async () => {
+  backupSay('compressing the real company state…');
+  const state = await realCompanyState();
+  const made = await window.FALLBRAIN.makeSnapshot(state);
+  if (!made.ok) { backupSay('<span style="color:var(--bad)">✗ ' + esc(made.why) + '</span>'); return; }
+  if (window.FALLBRAIN.hasFileSystemAccess()) {
+    if (!backupHandle) {
+      const picked = await window.FALLBRAIN.pickSaveHandle('fallbrain-company-memory.json');
+      if (!picked.ok) { backupSay('<span style="color:var(--bad)">✗ ' + esc(picked.why) + '</span>'); return; }
+      backupHandle = picked.handle;
+    }
+    const w = await window.FALLBRAIN.saveToHandle(backupHandle, made.envelope);
+    backupSay(w.ok
+      ? '<span style="color:var(--good)">✓ saved to your granted file (' + made.envelope.compressedBytes + ' bytes compressed from ' + made.envelope.rawBytes + ') — ' + state.doorQueue.queue.length + ' queue item(s), ' + state.receiptLedger.length + ' ledger receipt(s). File System Access, re-saves silently from here.</span>'
+      : '<span style="color:var(--bad)">✗ ' + esc(w.why) + '</span>');
+  } else {
+    window.FALLBRAIN.downloadEnvelope(made.envelope, 'fallbrain-company-memory.json');
+    backupSay('<span style="color:var(--good)">✓ downloaded (' + made.envelope.compressedBytes + ' bytes compressed from ' + made.envelope.rawBytes + ') — ' + state.doorQueue.queue.length + ' queue item(s), ' + state.receiptLedger.length + ' ledger receipt(s). This browser does not offer File System Access (Chromium-only), so this is the universal fallback: the same file you\'d re-upload with Restore.</span>');
+  }
+};
+$('fileRestoreCompany').onchange = async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  backupSay('restoring…');
+  const read = await window.FALLBRAIN.readUploadedFile(file);
+  if (!read.ok) { backupSay('<span style="color:var(--bad)">✗ ' + esc(read.why) + '</span>'); return; }
+  const restored = await window.FALLBRAIN.restoreSnapshot(read.parsed);
+  if (!restored.ok) { backupSay('<span style="color:var(--bad)">✗ ' + esc(restored.why) + '</span>'); return; }
+  if (!restored.valid) { backupSay('<span style="color:var(--bad)">✗ refused: ' + esc(restored.why) + '</span>'); return; }
+  const state = restored.state;
+  QSTATE.seq = state.doorQueue.seq; QSTATE.queue = state.doorQueue.queue;
+  await saveQueue();
+  await saveLedger(state.receiptLedger);
+  renderInbox(); renderDoors(); await renderLedgerSignal();
+  backupSay('<span style="color:var(--good)">✓ restored and VERIFIED intact — ' + state.doorQueue.queue.length + ' queue item(s), ' + state.receiptLedger.length + ' ledger receipt(s). The receipt hash and the shield both re-checked against the decompressed bytes before anything was written back.</span>');
+};
+$('btnSimulateWipe').onclick = async () => {
+  if (!confirm('This deletes fallbrain.v1 (door queue + ledger) from THIS browser\'s IndexedDB, for real — exactly what a "clear browsing data" would do. Continue?')) return;
+  indexedDB.deleteDatabase('fallbrain.v1');
+  backupSay('<span style="color:var(--warn)">✂ wiped — reload the page now to see it: the door queue and ledger read empty, unless you Restore from a file first.</span>');
+};
+backupSay('<span style="color:var(--soft)">' + (window.FALLBRAIN.hasFileSystemAccess() ? 'File System Access available in this browser — Backup will ask once, then re-save silently.' : 'File System Access is not available in this browser (Chromium-family only) — Backup downloads a file instead; Restore uploads it back. Said here plainly, not implied universal.') + '</span>');
 </script>
 </body>
 </html>

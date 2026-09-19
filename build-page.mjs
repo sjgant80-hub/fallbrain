@@ -30,6 +30,17 @@ const ledger = strip('ledger.mjs')
   .replace(/^import \{[^}]*\} from '\.\/triage\.mjs';$/m, "const { verifyTriageReceipt } = window.FALLBRAIN;");
 const signal = strip('signal.mjs')
   .replace(/^import \{[^}]*\} from '\.\/ledger\.mjs';$/m, "const { verifyLedgerChain } = window.FALLBRAIN;");
+// fold.mjs has no cross-file imports (pure primorial/shield arithmetic) — inlined as-is.
+const fold = strip('fold.mjs');
+// store.mjs composes cascade.mjs (sha256/canon) and fold.mjs (shielded/verifyShield) — same
+// window.FALLBRAIN translation as every other composing kernel here.
+const store = strip('store.mjs')
+  .replace(/^import \{[^}]*\} from '\.\/cascade\.mjs';$/m, "const { sha256, canon } = window.FALLBRAIN;")
+  .replace(/^import \{[^}]*\} from '\.\/fold\.mjs';$/m, "const { shielded, verifyShield } = window.FALLBRAIN;");
+// disk.mjs is the ungated I/O half (compression, File System Access, download/upload) — composes
+// store.mjs's gated law the same way.
+const disk = strip('disk.mjs')
+  .replace(/^import \{[^}]*\} from '\.\/store\.mjs';$/m, "const { sealEnvelope, openEnvelope, parseSnapshotFile } = window.FALLBRAIN;");
 
 // each kernel gets its OWN scope — they all declare helper consts (obj etc.) that would collide in one
 const block = `/*__KERNEL_START__*/
@@ -70,6 +81,18 @@ Object.assign(window.FALLBRAIN, { appendReceipt, verifyLedgerChain });
 ${signal.trim()}
 Object.assign(window.FALLBRAIN, { escalationSignal, MIN_SAMPLE });
 })();
+(function(){
+${fold.trim()}
+Object.assign(window.FALLBRAIN, { RINGS, PRIMORIAL, SHIELD, STATES, foldSubset, unfoldSubset, isBloom, foldResidues, unfoldResidues, shield, shielded, verifyShield });
+})();
+(function(){
+${store.trim()}
+Object.assign(window.FALLBRAIN, { STORE_KIND: KIND, STORE_VERSION: VERSION, sealEnvelope, openEnvelope, parseSnapshotFile, receiptHashOf });
+})();
+(function(){
+${disk.trim()}
+Object.assign(window.FALLBRAIN, { gzipCompress, gzipDecompress, hasFileSystemAccess, makeSnapshot, restoreSnapshot, pickSaveHandle, pickOpenHandle, saveToHandle, loadFromHandle, downloadEnvelope, readUploadedFile });
+})();
 /*__KERNEL_END__*/`;
 
 const htmlPath = join(here, 'index.html');
@@ -77,4 +100,4 @@ const html = readFileSync(htmlPath, 'utf8');
 const re = /\/\*__KERNEL_START__\*\/[\s\S]*?\/\*__KERNEL_END__\*\//;
 if (!re.test(html)) { console.error('REFUSED: markers not found'); process.exit(1); }
 writeFileSync(htmlPath, html.replace(re, () => block));
-console.log(`inlined ${((brain.length + state.length + draft.length + cascade.length + triage.length + ledger.length + signal.length) / 1024).toFixed(1)}KB of gated law (deciding + derivation + drafting + cascade + triage + ledger + signal) into index.html`);
+console.log(`inlined ${((brain.length + state.length + draft.length + cascade.length + triage.length + ledger.length + signal.length + fold.length + store.length + disk.length) / 1024).toFixed(1)}KB of gated law (deciding + derivation + drafting + cascade + triage + ledger + signal + fold + store + disk) into index.html`);

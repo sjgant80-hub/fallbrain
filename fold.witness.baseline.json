@@ -1,0 +1,7 @@
+[
+  {
+    "mutation": "< → <=",
+    "snippet": "for (let y = 1; y < p; y++) if ((aa * y) % p === 1) return y;",
+    "reason": "fold.mjs — EQUIVALENT (carried over from geometric-computer's own baseline, this exact line, re-verified against this vendored copy before reuse): the modular inverse of a coprime residue exists in [1,p-1], so the loop returns before y reaches p; the extra iteration y=p never matches ((aa*p)%p=0≠1). No behaviour change."
+  }
+]
