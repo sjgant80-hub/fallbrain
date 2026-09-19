@@ -13,5 +13,10 @@
     "mutation": "< → <=",
     "snippet": "for (let i = start; i < output.length; i++) {",
     "reason": "Genuinely equivalent: the mutated bound runs one extra iteration reading output[output.length], which is undefined — undefined matches none of the branch characters (backslash, quote, braces), no state changes, and the loop then exits exactly as before. Behaviour is identical for every input. Ported verbatim from fallnode/kernel.mjs's shouldEscalate(), which baselined this exact line with this exact reasoning (cascade.mjs)."
+  },
+  {
+    "mutation": "< → <=",
+    "snippet": "if (end < start) return { ok: false, why: 'no JSON object in the answer' };",
+    "reason": "Genuinely equivalent, checked empirically not just argued: start is always the index of a literal '{' character and end the index of a literal '}' character (indexOf/lastIndexOf results), and one string index can never hold two different characters at once — so start === end can never occur, which is the only case '<' and '<=' would disagree on. Probed a battery of adjacent/nested/reversed-brace inputs in node directly to confirm no input reaches the equal case (triage.mjs)."
   }
 ]

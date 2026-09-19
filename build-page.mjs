@@ -16,6 +16,12 @@ const brain = strip('brain.mjs');
 const state = strip('state.mjs');
 const draft = strip('draft.mjs');
 const cascade = strip('cascade.mjs');
+// triage.mjs is the one kernel that composes ANOTHER kernel (cascade.mjs) via a real ES import —
+// correct for Node (tests, witness), but each inlined kernel gets its OWN plain-script IIFE scope
+// here, not a module graph. Translate the import into a destructure off window.FALLBRAIN, which by
+// this point in the concatenated script already carries everything cascade.mjs's own IIFE assigned.
+const triage = strip('triage.mjs')
+  .replace(/^import \{[^}]*\} from '\.\/cascade\.mjs';$/m, "const { cascade, ASK_COST, LIMB_COST, sha256, canon } = window.FALLBRAIN;");
 
 // each kernel gets its OWN scope — they all declare helper consts (obj etc.) that would collide in one
 const block = `/*__KERNEL_START__*/
@@ -42,7 +48,11 @@ Object.assign(window.FALLBRAIN, { writebackPlan, writeAllowed, WRITE_CAPS });
 })();
 (function(){
 ${cascade.trim()}
-Object.assign(window.FALLBRAIN, { ASK_COST, LIMB_COST, shouldEscalate, cascade, cascadeReceipt, cascadeSignable, verifyCascadeReceipt });
+Object.assign(window.FALLBRAIN, { ASK_COST, LIMB_COST, shouldEscalate, cascade, cascadeReceipt, cascadeSignable, verifyCascadeReceipt, sha256, canon });
+})();
+(function(){
+${triage.trim()}
+Object.assign(window.FALLBRAIN, { TRIAGE_FORMAT, CATEGORIES, CATEGORY_FIELD, URGENCIES, parseTriage, triageOutcome, triageReceipt, triageSignable, verifyTriageReceipt });
 })();
 /*__KERNEL_END__*/`;
 
@@ -51,4 +61,4 @@ const html = readFileSync(htmlPath, 'utf8');
 const re = /\/\*__KERNEL_START__\*\/[\s\S]*?\/\*__KERNEL_END__\*\//;
 if (!re.test(html)) { console.error('REFUSED: markers not found'); process.exit(1); }
 writeFileSync(htmlPath, html.replace(re, () => block));
-console.log(`inlined ${((brain.length + state.length + draft.length + cascade.length) / 1024).toFixed(1)}KB of gated law (deciding + derivation + drafting + cascade) into index.html`);
+console.log(`inlined ${((brain.length + state.length + draft.length + cascade.length + triage.length) / 1024).toFixed(1)}KB of gated law (deciding + derivation + drafting + cascade + triage) into index.html`);

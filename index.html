@@ -140,6 +140,15 @@
     <div id="cascadeVerifyOut" style="margin-top:8px;font-size:.88rem"></div>
   </details>
 
+  <h2>8 · A real task, cascaded — inbound correspondence → the company's own counts</h2>
+  <p class="sub">The gap named honestly: the loop's state (cooling-off/complaints/CDD/&hellip;) above is hand-typed. This is the missing first step — a genuine structured-extraction task (classify an inbound message), local-first, escalating only on a real format break, that could feed those SAME counts instead. Runs the actual local model on this device; a real second call only happens if the first one breaks shape.</p>
+  <textarea id="triageText" placeholder="Paste an inbound message, e.g. a letter or email from a claimant" style="width:100%;min-height:70px;font:13px/1.5 Georgia,serif;background:var(--panel);border:1px solid var(--line);border-radius:7px;color:inherit;padding:10px 12px"></textarea>
+  <div class="row" style="margin-top:8px">
+    <button id="btnTriage">Triage this message (local-first)</button>
+    <span id="triageStatus" style="color:var(--soft);font-size:.85rem"></span>
+  </div>
+  <div id="triageOut" class="card" style="display:none;margin-top:10px"></div>
+
   <div class="honest"><b>Honest wire.</b> The organs are real and live (every link works); the law is real
   (both kernels inlined verbatim — the deciding law 28/28 and the derivation law 22/22 mutation-gated in
   CI); the doors and the grant wall are real refusals, not theatre. <b>"Read the real records" reads this
@@ -159,7 +168,10 @@
   flip verification status — that stays the organ's own act. The brain
   probe reaches your machine only; nothing here leaves your browser. <b>The cascade law is real</b> —
   ported verbatim from fallnode's own shipped shouldEscalate(), same cost figures (1 for local, 5 for
-  escalated); the demo buttons run the actual kernel, not a canned animation.</div>
+  escalated); the demo buttons run the actual kernel, not a canned animation. <b>Section 8 is the same
+  law on a real task</b>: it calls your actual local Ollama model to classify whatever message you
+  paste, judges the real answer against the taxonomy, and only calls a second (bigger) local model if
+  the first one genuinely breaks JSON shape — nothing here is scripted or pre-recorded.</div>
 
   <footer>fallbrain · the assembly: fallcore is the brain · fallrouter routes · didy conducts · fallcorp is
   the shape · the estate is the body — this switches them on for ONE company ·
@@ -843,7 +855,157 @@ function verifyCascadeReceipt(r) {
   if (r.cost !== expectedCost) return { ok: true, valid: false, why: 'the receipt’s cost does not match its own tier — a local tier must cost ' + ASK_COST + ', escalated must cost ' + LIMB_COST };
   return { ok: true, valid: true, why: 'cascade intact' };
 }
-Object.assign(window.FALLBRAIN, { ASK_COST, LIMB_COST, shouldEscalate, cascade, cascadeReceipt, cascadeSignable, verifyCascadeReceipt });
+Object.assign(window.FALLBRAIN, { ASK_COST, LIMB_COST, shouldEscalate, cascade, cascadeReceipt, cascadeSignable, verifyCascadeReceipt, sha256, canon });
+})();
+(function(){
+// fallbrain · triage.mjs — the missing first step: turn a REAL inbound message into the structured
+// counts nextAction() already consumes (coolingExpired, complaintsOpen, cddPending, reviewsDue,
+// invoicesUnpaid, docsAwaited). Today those counts are hand-typed into number inputs; this is the
+// law that could derive them from an actual letter instead — a genuine structured-extraction task
+// the company genuinely does, not the free-text letter-drafting loop force-fitted into a JSON gate.
+//
+// Composes cascade.mjs's cascade() for the pricing law (does NOT duplicate shouldEscalate) — this
+// file adds the DOMAIN vocabulary only: which categories exist, and which state field each feeds.
+// No I/O here: the two-round local-then-limb model call lives in the page (same separation as
+// draft.mjs/localComplete already use) — this kernel only judges what came back. Pure and total:
+// garbage in -> { ok:false, why }, never a throw.
+
+const { cascade, ASK_COST, LIMB_COST, sha256, canon } = window.FALLBRAIN;
+
+const isStr = (v) => typeof v === 'string';
+const isObj = (v) => (v && typeof v === 'object' && !Array.isArray(v));
+const HEX = /^[0-9a-f]+$/;
+const isHash = (v) => isStr(v) && v.length === 64 && HEX.test(v);
+
+const TRIAGE_FORMAT = Object.freeze({ type: 'json', required: ['category', 'urgency'] });
+
+// each category names the fallbrain state field it feeds when recognized. 'general' feeds nothing —
+// not every inbound message is actionable, and inventing a bucket for it would be a silent miscount.
+const CATEGORY_FIELD = Object.freeze({
+  'cooling-cancellation': 'coolingExpired',
+  'complaint': 'complaintsOpen',
+  'cdd-document': 'cddPending',
+  'kyc-update': 'reviewsDue',
+  'payment': 'invoicesUnpaid',
+  'document': 'docsAwaited',
+  'general': null,
+});
+const CATEGORIES = Object.freeze(Object.keys(CATEGORY_FIELD));
+const URGENCIES = Object.freeze(['standard', 'high']);
+
+/** parseTriage(output) — extract {category, urgency} from a model's JSON answer, validated against
+ *  the known taxonomy. A shape that parses but names an unrecognised category is refused, never
+ *  guessed past — an invented category would silently feed the wrong (or no) state field. */
+function parseTriage(output) {
+  if (!isStr(output)) return { ok: false, why: 'no output to parse' };
+  const start = output.indexOf('{');
+  const end = output.lastIndexOf('}');
+  if (start === -1) return { ok: false, why: 'no JSON object in the answer' };
+  if (end === -1) return { ok: false, why: 'no JSON object in the answer' };
+  if (end < start) return { ok: false, why: 'no JSON object in the answer' };
+  let obj;
+  try { obj = JSON.parse(output.slice(start, end + 1)); } catch (e) { return { ok: false, why: 'the answer’s JSON does not parse' }; }
+  if (!isObj(obj)) return { ok: false, why: 'the answer’s JSON is not an object' };
+  if (!isStr(obj.category)) return { ok: false, why: 'the answer has no category' };
+  if (!CATEGORIES.includes(obj.category)) return { ok: false, why: 'unrecognised category: ' + obj.category };
+  if (!isStr(obj.urgency)) return { ok: false, why: 'the answer has no urgency' };
+  if (!URGENCIES.includes(obj.urgency)) return { ok: false, why: 'unrecognised urgency: ' + obj.urgency };
+  return { ok: true, category: obj.category, urgency: obj.urgency, field: CATEGORY_FIELD[obj.category] };
+}
+
+/** triageOutcome(localOutput, escalatedOutput) — the whole judged pipeline for one message: which
+ *  tier answered (via cascade.mjs's real pricing law) and, for whichever answer actually held
+ *  format, what it means for the company's state. An escalation with no limb answer supplied, or a
+ *  limb answer that ALSO doesn't hold format, is named honestly — never guessed past. */
+function triageOutcome(localOutput, escalatedOutput) {
+  const decision = { action: 'triage-correspondence' };
+  const local = cascade(decision, localOutput, TRIAGE_FORMAT);
+  if (!local.ok) return local;
+  if (local.tier === 'local') {
+    const p = parseTriage(localOutput);
+    return {
+      ok: true, tier: 'local', cost: ASK_COST, by: null, resolved: p.ok,
+      category: p.ok ? p.category : null, urgency: p.ok ? p.urgency : null, field: p.ok ? p.field : null,
+      why: p.ok ? ('recognised as ' + p.category + (p.field ? ' — feeds ' + p.field : ' — informational, no state field')) : ('local model held JSON shape but not the taxonomy: ' + p.why),
+    };
+  }
+  // escalated: the page should have made a SECOND real call and handed us that answer to judge
+  if (!isStr(escalatedOutput)) {
+    return { ok: true, tier: 'escalated', cost: LIMB_COST, by: null, resolved: false, category: null, urgency: null, field: null, why: 'local model did not hold format (' + local.why + ') and no limb answer was supplied to judge' };
+  }
+  const p2 = parseTriage(escalatedOutput);
+  return {
+    ok: true, tier: 'escalated', cost: LIMB_COST, by: 'limb', resolved: p2.ok,
+    category: p2.ok ? p2.category : null, urgency: p2.ok ? p2.urgency : null, field: p2.ok ? p2.field : null,
+    why: p2.ok ? ('local model did not hold format — the limb answered: recognised as ' + p2.category + (p2.field ? ' — feeds ' + p2.field : ' — informational, no state field')) : ('local model did not hold format, and the limb did not either: ' + p2.why),
+  };
+}
+
+/** triageReceipt(input) — seals one triage outcome into a re-verifiable, provenance-bindable
+ *  receipt. taskHash binds on the inbound text + both raw outputs, so the receipt is a claim about
+ *  THIS exact message and THESE exact answers, not a description anyone could substitute later. */
+function triageReceipt(input) {
+  if (!isObj(input)) return { ok: false, why: 'triageReceipt takes an object' };
+  const { text, localOutput, escalatedOutput, holder, createdAt } = input;
+  if (!isStr(text)) return { ok: false, why: 'the receipt needs the inbound text' };
+  if (text.trim().length === 0) return { ok: false, why: 'the receipt needs non-empty inbound text' };
+  if (!isStr(holder)) return { ok: false, why: 'the receipt needs a holder' };
+  if (holder.trim().length === 0) return { ok: false, why: 'the receipt needs a non-empty holder' };
+  if (!isStr(createdAt)) return { ok: false, why: 'the receipt needs a createdAt timestamp' };
+  if (createdAt.length === 0) return { ok: false, why: 'the receipt needs a non-empty createdAt timestamp' };
+  const o = triageOutcome(localOutput, escalatedOutput);
+  if (!o.ok) return o;
+  const th = sha256(canon({ text, localOutput: isStr(localOutput) ? localOutput : null, escalatedOutput: isStr(escalatedOutput) ? escalatedOutput : null }));
+  if (!th.ok) return { ok: false, why: th.why };
+  const body = {
+    v: 1,
+    kind: 'fallbrain-triage',
+    tier: o.tier, cost: o.cost, by: o.by,
+    resolved: o.resolved, category: o.category, urgency: o.urgency, field: o.field,
+    why: o.why,
+    holder: holder.trim(), taskHash: th.hash, createdAt,
+    scope: 'One judged triage of one real inbound message: which tier answered, what it cost, and — only if some answer actually held the required shape — which company state field it feeds. Proves the escalation rule and the taxonomy were applied honestly to this message, not that the category is objectively correct or that anything was acted on.',
+  };
+  const h = sha256(canon(body));
+  if (!h.ok) return { ok: false, why: h.why };
+  return { ok: true, receipt: { ...body, hash: h.hash } };
+}
+
+/** triageSignable(receipt) — the exact canonical bytes an Ed25519 signature covers (minus signature). */
+function triageSignable(receipt) {
+  if (!isObj(receipt)) return { ok: false, why: 'not a fallbrain triage receipt' };
+  if (receipt.kind !== 'fallbrain-triage') return { ok: false, why: 'not a fallbrain triage receipt' };
+  if (!isHash(receipt.hash)) return { ok: false, why: 'the receipt has no hash' };
+  const body = { ...receipt };
+  delete body.signature;
+  return { ok: true, payload: canon(body) };
+}
+
+/** verifyTriageReceipt(r) — matches its own hash AND resolved/category/field are mutually
+ *  consistent (a resolved receipt must name a category; an unresolved one must name none). */
+function verifyTriageReceipt(r) {
+  if (!isObj(r)) return { ok: false, why: 'not a fallbrain triage receipt' };
+  if (r.kind !== 'fallbrain-triage') return { ok: false, why: 'not a fallbrain triage receipt' };
+  if (!isHash(r.hash)) return { ok: false, why: 'the receipt has no hash' };
+  const body = { ...r };
+  delete body.hash;
+  delete body.signature;
+  const h = sha256(canon(body));
+  if (!h.ok) return { ok: false, why: h.why };
+  if (h.hash !== r.hash) return { ok: true, valid: false, why: 'the receipt does not match its own fingerprint — it was changed after it was issued' };
+  if (typeof r.resolved !== 'boolean') return { ok: true, valid: false, why: 'the receipt has no resolved flag' };
+  if (r.resolved) {
+    if (!isStr(r.category)) return { ok: true, valid: false, why: 'a resolved receipt must name a category' };
+    if (!CATEGORIES.includes(r.category)) return { ok: true, valid: false, why: 'the receipt names an unrecognised category' };
+    if (!isStr(r.urgency)) return { ok: true, valid: false, why: 'a resolved receipt must name an urgency' };
+    if (CATEGORY_FIELD[r.category] !== r.field) return { ok: true, valid: false, why: 'the receipt’s field does not match its own category' };
+  } else {
+    if (r.category !== null) return { ok: true, valid: false, why: 'an unresolved receipt must not name a category' };
+    if (r.field !== null) return { ok: true, valid: false, why: 'an unresolved receipt must not name a field' };
+  }
+  return { ok: true, valid: true, why: 'triage intact' };
+}
+Object.assign(window.FALLBRAIN, { TRIAGE_FORMAT, CATEGORIES, CATEGORY_FIELD, URGENCIES, parseTriage, triageOutcome, triageReceipt, triageSignable, verifyTriageReceipt });
 })();
 /*__KERNEL_END__*/</script>
 <script>
@@ -1247,6 +1409,77 @@ $('btnCascadeVerify').onclick = () => {
   out.innerHTML = v.valid
     ? '<span style="color:var(--good)">✓ GENUINE — ' + esc(receipt.tier) + ', cost ' + receipt.cost + '</span>'
     : '<span style="color:var(--bad)">✗ CHANGED — ' + esc(v.why) + '</span>';
+};
+
+// ── section 8: a real task, cascaded — calls actual local Ollama, escalates only on a real break ──
+const TRIAGE_SMALL_MODEL = 'llama3.2:1b';   // the cheap default — same role as fallnode's ASK tier
+const TRIAGE_LIMB_MODEL = 'qwen2.5:14b';    // only called if the small model breaks shape
+const TRIAGE_STATE_INPUT = { coolingExpired: 'st-cool', complaintsOpen: 'st-comp', cddPending: 'st-cdd', reviewsDue: 'st-rev', invoicesUnpaid: 'st-inv', docsAwaited: 'st-doc' };
+function triagePrompt(text){
+  const cats = window.FALLBRAIN.CATEGORIES.join(', ');
+  const urgs = window.FALLBRAIN.URGENCIES.join(', ');
+  return {
+    system: 'You classify inbound correspondence for a UK claims firm. Reply with ONLY one JSON object, nothing else: {"category": one of [' + cats + '], "urgency": one of [' + urgs + ']}. No prose, no markdown fences.',
+    prompt: 'Classify this message:\n\n' + text,
+  };
+}
+window.__lastTriageReceipt = null;
+$('btnTriage').onclick = async () => {
+  const text = $('triageText').value;
+  const out = $('triageOut'); const status = $('triageStatus');
+  if (!text || !text.trim()) { status.textContent = 'paste a message first'; return; }
+  out.style.display = 'none'; window.__lastTriageReceipt = null;
+  const { system, prompt } = triagePrompt(text);
+  status.textContent = 'asking the local model (' + TRIAGE_SMALL_MODEL + ')…';
+  let localOutput = null, escalatedOutput = null, by = null;
+  try { localOutput = (await localComplete(system, prompt, TRIAGE_SMALL_MODEL)).text; }
+  catch (e) { status.textContent = ''; out.style.display = 'block'; out.innerHTML = '<span style="color:var(--bad)">local model unreachable (' + esc(String(e.message||e)) + '). Fix: run Ollama with OLLAMA_ORIGINS="' + esc(location.origin) + '", or use the page locally.</span>'; return; }
+  // decide the tier the SAME way cascade.mjs's own law decides it, before spending a second real call
+  const decision = window.FALLBRAIN.cascade({ action: 'triage-correspondence' }, localOutput, window.FALLBRAIN.TRIAGE_FORMAT);
+  if (decision.ok && decision.tier === 'escalated') {
+    status.textContent = 'local model did not hold format — asking the limb (' + TRIAGE_LIMB_MODEL + ')…';
+    try { escalatedOutput = (await localComplete(system, prompt, TRIAGE_LIMB_MODEL)).text; by = TRIAGE_LIMB_MODEL; }
+    catch (e) { /* honest: limb unreachable too — triageReceipt below will name the gap, not fake a result */ }
+  }
+  status.textContent = '';
+  const r = window.FALLBRAIN.triageReceipt({ text, localOutput, escalatedOutput, holder: 'ada', createdAt: new Date().toISOString() });
+  out.style.display = 'block';
+  if (!r.ok) { out.innerHTML = '<span style="color:var(--bad)">✗ ' + esc(r.why) + '</span>'; return; }
+  const rec = r.receipt;
+  window.__lastTriageReceipt = rec;
+  const col = rec.resolved ? 'var(--good)' : 'var(--warn)';
+  let h = '<div style="font-size:1.05rem;font-weight:700;color:' + col + '">' + (rec.tier === 'local' ? '● LOCAL' : '▲ ESCALATED' + (rec.by ? ' · answered by ' + esc(rec.by) : '')) + ' — cost ' + rec.cost + '</div>';
+  h += '<div style="margin-top:6px">' + (rec.resolved ? ('recognised as <b>' + esc(rec.category) + '</b> (' + esc(rec.urgency) + ')') : '<span style="color:var(--warn)">not resolved</span>') + '</div>';
+  h += '<div style="color:var(--soft);font-size:.85rem;margin-top:4px">' + esc(rec.why) + '</div>';
+  h += '<div style="font:11px ui-monospace,monospace;color:var(--soft);margin-top:8px">taskHash: ' + esc(rec.taskHash.slice(0,16)) + '… · receipt: ' + esc(rec.hash.slice(0,16)) + '…</div>';
+  if (rec.resolved && rec.field && TRIAGE_STATE_INPUT[rec.field]) {
+    h += '<div class="row" style="margin-top:10px"><button class="ghost" id="btnTriageApply">+1 to ' + esc(rec.field) + ' → then run the loop above</button></div>';
+  }
+  h += '<div class="row" style="margin-top:8px"><button class="ghost" id="btnTriageDl">⤓ Download signed triage receipt</button></div><div id="triageDlMsg" style="margin-top:6px;font-size:.85rem;color:var(--soft)"></div>';
+  out.innerHTML = h;
+  if (rec.resolved && rec.field && TRIAGE_STATE_INPUT[rec.field]) {
+    $('btnTriageApply').onclick = () => {
+      const el = $(TRIAGE_STATE_INPUT[rec.field]);
+      el.value = (parseInt(el.value, 10) || 0) + 1;
+      $('btnTriageApply').textContent = '✓ applied — ' + esc(rec.field) + ' now ' + el.value;
+      $('btnTriageApply').disabled = true;
+    };
+  }
+  $('btnTriageDl').onclick = async () => {
+    let receipt = rec, signed = false;
+    try {
+      const kp = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign','verify']);
+      const payload = new TextEncoder().encode(window.FALLBRAIN.triageSignable(receipt).payload);
+      const sig = new Uint8Array(await crypto.subtle.sign({ name: 'Ed25519' }, kp.privateKey, payload));
+      const pub = new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey));
+      const toHex = (b) => [...b].map((x) => x.toString(16).padStart(2,'0')).join('');
+      receipt = { ...receipt, signature: { alg: 'Ed25519', pub: toHex(pub), sig: toHex(sig) } };
+      signed = true;
+    } catch(e) { /* no Ed25519 — the self-hash still makes it tamper-evident */ }
+    const blob = new Blob([JSON.stringify(receipt, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'fallbrain-triage.json'; a.click(); URL.revokeObjectURL(a.href);
+    $('triageDlMsg').textContent = (window.FALLBRAIN.verifyTriageReceipt(receipt).valid ? '✓ ' : '⚠ ') + 'Downloaded — ' + (signed ? 'signed and ' : '') + 'tamper-evident.';
+  };
 };
 </script>
 </body>
