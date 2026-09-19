@@ -149,6 +149,10 @@
   </div>
   <div id="triageOut" class="card" style="display:none;margin-top:10px"></div>
 
+  <h2>9 · The ledger — every real triage receipt, hash-chained and re-checkable</h2>
+  <p class="sub">Section 8's receipts used to vanish once you reloaded the page — a real gap, named honestly rather than left silent. This persists every one (device-local, same store discipline as the inbox), each entry only ever admitted after it verifies against its own hash, chained to the one before it so nothing in between can be edited unnoticed. Below it: the real escalation signal derived from whatever is actually in the ledger right now — where the local model keeps having to hand off to the limb, which is the honest, checkable version of "where a task-specific model would pay off." Empty until you run section 8 for real.</p>
+  <div id="ledgerOut" class="card"></div>
+
   <div class="honest"><b>Honest wire.</b> The organs are real and live (every link works); the law is real
   (both kernels inlined verbatim — the deciding law 28/28 and the derivation law 22/22 mutation-gated in
   CI); the doors and the grant wall are real refusals, not theatre. <b>"Read the real records" reads this
@@ -1007,6 +1011,172 @@ function verifyTriageReceipt(r) {
 }
 Object.assign(window.FALLBRAIN, { TRIAGE_FORMAT, CATEGORIES, CATEGORY_FIELD, URGENCIES, parseTriage, triageOutcome, triageReceipt, triageSignable, verifyTriageReceipt });
 })();
+(function(){
+// fallbrain · ledger.mjs — the receipt ledger: every cascade/triage receipt, hash-chained, so the
+// company's escalation history is a real append-only record anyone can verify — not a claim about
+// what happened, a re-checkable one. THE MISSING PERSISTENCE LAYER: cascade.mjs/triage.mjs already
+// seal individual decisions into receipts, but until this file nothing accumulated them past one
+// browser render — no filesystem log, no IndexedDB store, checked directly against state.mjs before
+// writing a line of this (2026-09-19).
+//
+// THE PROVENANCE QUESTION THIS ANSWERS, AND THE ONE IT DELIBERATELY DOES NOT TRY TO:
+// fallforge's provenanceChain (mint→catalogue→served→audited) proves an ARTIFACT's lifecycle across
+// independent systems, binding on manifest.hash — "is the running node the exact thing that was
+// minted and shelved." fallbrain's cascade/triage receipts are not that shape. They're independent
+// TASK-EXECUTION EVENTS over time, each already self-verifying via its own taskHash (a hash of THIS
+// message/action's text and answers, checked against itself — see cascade.mjs/triage.mjs's own
+// comments, which flagged this exact seam as deliberately left open, not forgotten). Checked
+// directly before building anything: reusing provenanceChain here would mean comparing a triage
+// taskHash (over message text + answers) against a mint manifest.hash (over a model's build
+// manifest) — two hashes over fundamentally different inputs that could never legitimately match by
+// construction. Forcing that "join" would either always fail (useless) or require faking the match
+// (dishonest) — exactly the mistake this session already caught itself on once with draft.mjs's
+// task-shape mismatch. Declining it again, on purpose, here.
+//
+// The pattern that genuinely fits this shape already exists in the estate: fallnode's OWN
+// hash-chained service ledger (appendLedger/verifyLedger, GENESIS/prevHash) — built for exactly
+// "a sequence of independently-generated, self-verifiable events from one source." Vendored here,
+// not imported (single-file-page discipline — every repo in this family vendors its own
+// sha256/canon deliberately; same reasoning), and strengthened one step further for this specific
+// use: an entry may only join the chain if it ALREADY verifies as a genuine cascade or triage
+// receipt on its own terms. A garbage or forged-but-plausible entry cannot enter even once, let
+// alone accumulate — the ledger's own gate, not just a wrapper around an assertion.
+//
+// Pure and total: garbage in -> { ok:false, why }, never a throw. The page persists `chain`
+// (IndexedDB, device-local — same store discipline as every other fallbrain record) and re-verifies
+// on read, the same "never trust a cached render" discipline the rest of the estate holds.
+
+const { sha256, canon, verifyCascadeReceipt } = window.FALLBRAIN;
+const { verifyTriageReceipt } = window.FALLBRAIN;
+
+const isStr = (v) => typeof v === 'string';
+const isObj = (v) => (v && typeof v === 'object' && !Array.isArray(v));
+const isArr = Array.isArray;
+
+const RECEIPT_KINDS = Object.freeze(['fallbrain-cascade', 'fallbrain-triage']);
+
+function verifyByKind(receipt) {
+  if (receipt.kind === 'fallbrain-cascade') return verifyCascadeReceipt(receipt);
+  if (receipt.kind === 'fallbrain-triage') return verifyTriageReceipt(receipt);
+  return { ok: false, why: `"${isStr(receipt.kind) ? receipt.kind : typeof receipt.kind}" is not a receipt kind this ledger accepts (${RECEIPT_KINDS.join(' or ')})` };
+}
+
+/**
+ * appendReceipt(chain, receipt) — only a receipt that VERIFIES on its own terms may join the
+ * ledger. This is the ledger's own gate: a garbage or forged-but-plausible-looking receipt never
+ * gets in, not even once. Returns a NEW array (pure); the caller persists it.
+ */
+function appendReceipt(chain, receipt) {
+  if (!isArr(chain)) return { ok: false, why: 'the ledger is an array' };
+  if (!isObj(receipt)) return { ok: false, why: 'a ledger entry must be a receipt object' };
+  const v = verifyByKind(receipt);
+  if (!v.ok) return { ok: false, why: v.why };
+  if (!v.valid) return { ok: false, why: 'refused: this receipt does not verify against its own hash — ' + v.why };
+  const prevHash = chain.length === 0 ? 'GENESIS' : chain[chain.length - 1].hash;
+  const h = sha256(prevHash + '|' + canon(receipt));
+  if (!h.ok) return { ok: false, why: h.why };
+  return { ok: true, chain: [...chain, { seq: chain.length, prevHash, hash: h.hash, kind: receipt.kind, entry: receipt }] };
+}
+
+/**
+ * verifyLedgerChain(chain) — walks the hash chain AND re-verifies every entry is still a genuine
+ * receipt: defence in depth. A chain-link-consistent forgery (someone hand-edited entry.hash to
+ * match after tampering with the receipt inside it) is still caught, because the receipt's OWN
+ * internal hash is re-checked here too, not just trusted because it passed at append time.
+ */
+function verifyLedgerChain(chain) {
+  if (!isArr(chain)) return { ok: false, why: 'the ledger is an array' };
+  for (let i = 0; i < chain.length; i++) {
+    const item = chain[i];
+    if (!isObj(item) || !isStr(item.hash) || !isStr(item.prevHash) || !isObj(item.entry))
+      return { ok: true, valid: false, brokenAt: i, why: 'malformed ledger entry at this position' };
+    if (item.seq !== i) return { ok: true, valid: false, brokenAt: i, why: 'sequence number does not match its position in the chain' };
+    const expectedPrev = i === 0 ? 'GENESIS' : chain[i - 1].hash;
+    if (item.prevHash !== expectedPrev) return { ok: true, valid: false, brokenAt: i, why: 'chain link broken — prevHash does not match the prior entry\'s hash' };
+    const h = sha256(item.prevHash + '|' + canon(item.entry));
+    if (!h.ok || h.hash !== item.hash) return { ok: true, valid: false, brokenAt: i, why: 'this entry\'s hash does not match its own chain link — tampered after it was appended' };
+    const v = verifyByKind(item.entry);
+    if (!v.ok || !v.valid) return { ok: true, valid: false, brokenAt: i, why: 'the receipt at this position no longer verifies against its own internal hash' };
+  }
+  return { ok: true, valid: true, length: chain.length };
+}
+Object.assign(window.FALLBRAIN, { appendReceipt, verifyLedgerChain });
+})();
+(function(){
+// fallbrain · signal.mjs — the escalation signal: read the real ledger, surface WHERE the local
+// model keeps failing to hold format and the limb has to answer instead. That's the honest,
+// checkable version of "where would minting a task-specific model pay off" — not a guess, a count
+// over real receipts, each of which is itself a verified, tamper-evident record (ledger.mjs).
+//
+// Deliberately does NOT invent a recommendation sentence. It returns the real counts and rates per
+// category, plus a plain, bounded flag — "enough volume to mean something" or "too few samples to
+// conclude anything" — and leaves the actual business judgement to whoever reads it. Overselling a
+// pattern from 2 data points is exactly the kind of claim this estate refuses to make (same
+// discipline as the n=2 caveat already kept honest in fallforgemint's own proof-node work).
+//
+// Refuses to compute anything over a chain that doesn't verify — an aggregate built on a tampered
+// or malformed ledger would be a real number about a fake history. Pure and total: garbage in ->
+// { ok:false, why }, never a throw.
+
+const { verifyLedgerChain } = window.FALLBRAIN;
+
+const isArr = Array.isArray;
+
+// Below this many triage receipts in a category, a rate is noise dressed as a finding — don't
+// claim one. Matches the estate's existing small-sample honesty (fallforgemint's n=2 caveat).
+const MIN_SAMPLE = 5;
+
+/**
+ * escalationSignal(chain) — chain: a ledger as produced by ledger.mjs's appendReceipt. Verifies the
+ * chain first (never signal off data that might be tampered), then counts, per recognised triage
+ * category: how many times the local model held format vs. how many times it escalated to the
+ * limb. Unresolved receipts (neither local nor limb answer held the taxonomy) are counted
+ * separately — a real signal too, but a different one: the taxonomy or the prompt may be the gap,
+ * not "which model answers," and folding it into a category's rate would misdescribe it.
+ */
+function escalationSignal(chain) {
+  if (!isArr(chain)) return { ok: false, why: 'the ledger is an array' };
+  const v = verifyLedgerChain(chain);
+  if (!v.ok) return v;
+  if (!v.valid) return { ok: false, why: `refused to signal off a ledger that does not verify (broken at position ${v.brokenAt}) — an aggregate over tampered history is a real number about a fake history` };
+
+  const triaged = chain.filter((item) => item.kind === 'fallbrain-triage').map((item) => item.entry);
+  if (triaged.length === 0) return { ok: true, categories: [], unresolvedCount: 0, totalTriaged: 0, why: 'no triage receipts in the ledger yet — nothing to signal from' };
+
+  const byCategory = {};
+  let unresolvedCount = 0;
+  for (const r of triaged) {
+    if (r.resolved !== true || typeof r.category !== 'string' || r.category.length === 0) { unresolvedCount++; continue; }
+    const c = (byCategory[r.category] ||= { category: r.category, total: 0, escalated: 0, local: 0 });
+    c.total++;
+    if (r.tier === 'escalated') c.escalated++;
+    else c.local++;
+  }
+
+  const categories = Object.values(byCategory).map((c) => ({
+    category: c.category,
+    total: c.total,
+    local: c.local,
+    escalated: c.escalated,
+    escalationRate: c.escalated / c.total,
+    enoughSample: c.total >= MIN_SAMPLE,
+    flag: c.total >= MIN_SAMPLE
+      ? `${c.escalated}/${c.total} escalated (${Math.round((c.escalated / c.total) * 100)}%) — enough volume to mean something`
+      : `only ${c.total} sample(s) — below the ${MIN_SAMPLE}-sample floor, too few to conclude anything`,
+  })).sort((a, b) => (b.escalated - a.escalated) || (b.total - a.total));
+
+  return {
+    ok: true,
+    categories,
+    unresolvedCount,
+    totalTriaged: triaged.length,
+    why: categories.length > 0
+      ? `${triaged.length} triage receipt(s) across ${categories.length} recognised categor${categories.length === 1 ? 'y' : 'ies'}, ${unresolvedCount} unresolved`
+      : `${triaged.length} triage receipt(s), all unresolved — the taxonomy or the prompt may be the gap, not which model answers`,
+  };
+}
+Object.assign(window.FALLBRAIN, { escalationSignal, MIN_SAMPLE });
+})();
 /*__KERNEL_END__*/</script>
 <script>
 const $ = (id) => document.getElementById(id);
@@ -1160,10 +1330,58 @@ window.wordDraft = async (i) => {
 window.QSTATE = { seq: 0, queue: [] };
 function brainDb() {
   return new Promise((res) => {
-    const q = indexedDB.open('fallbrain.v1', 1);
-    q.onupgradeneeded = (e) => { const db = e.target.result; if (!db.objectStoreNames.contains('doorQueue')) db.createObjectStore('doorQueue'); };
+    const q = indexedDB.open('fallbrain.v1', 2); // v2: adds receiptLedger (section 9) alongside doorQueue
+    q.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('doorQueue')) db.createObjectStore('doorQueue');
+      if (!db.objectStoreNames.contains('receiptLedger')) db.createObjectStore('receiptLedger');
+    };
     q.onsuccess = () => res(q.result); q.onerror = () => res(null);
   });
+}
+// ── section 9's store: the real receipt ledger, same device-local discipline as the door queue ────
+async function loadLedger() {
+  const db = await brainDb(); if (!db) return [];
+  const chain = await new Promise((res) => {
+    try { const g = db.transaction('receiptLedger', 'readonly').objectStore('receiptLedger').get('main');
+      g.onsuccess = () => res(Array.isArray(g.result) ? g.result : []); g.onerror = () => res([]);
+    } catch (e) { res([]); }
+  });
+  db.close();
+  return chain;
+}
+async function saveLedger(chain) {
+  const db = await brainDb(); if (!db) return;
+  await new Promise((res) => {
+    try { const t = db.transaction('receiptLedger', 'readwrite'); t.objectStore('receiptLedger').put(chain, 'main');
+      t.oncomplete = () => res(); t.onerror = () => res();
+    } catch (e) { res(); }
+  });
+  db.close();
+}
+async function renderLedgerSignal() {
+  const el = $('ledgerOut'); if (!el) return;
+  const chain = await loadLedger();
+  const v = window.FALLBRAIN.verifyLedgerChain(chain);
+  if (!v.ok || !v.valid) {
+    el.innerHTML = chain.length
+      ? '<span style="color:var(--bad)">✗ the persisted ledger does not verify (broken at position ' + (v.brokenAt ?? '?') + ') — something changed it outside this page</span>'
+      : '<span style="color:var(--soft);font-size:.9rem">Empty — nothing triaged for real yet. Run section 8 above.</span>';
+    return;
+  }
+  const sig = window.FALLBRAIN.escalationSignal(chain);
+  let h = '<div style="font-size:.9rem">✓ ' + v.length + ' receipt(s) in the ledger, chain verified end to end.</div>';
+  if (sig.ok && sig.categories.length) {
+    h += '<div style="color:var(--soft);font-size:.85rem;margin-top:6px">' + esc(sig.why) + '</div>';
+    h += '<table style="width:100%;margin-top:8px;font-size:.85rem;border-collapse:collapse">'
+       + '<tr style="color:var(--soft);text-align:left"><th>category</th><th>local</th><th>escalated</th><th>rate</th><th></th></tr>'
+       + sig.categories.map((c) => '<tr><td>' + esc(c.category) + '</td><td>' + c.local + '</td><td>' + c.escalated + '</td><td>' + Math.round(c.escalationRate * 100) + '%</td><td style="color:var(--soft)">' + esc(c.flag) + '</td></tr>').join('')
+       + '</table>';
+    if (sig.unresolvedCount) h += '<div style="color:var(--warn);font-size:.85rem;margin-top:6px">' + sig.unresolvedCount + ' unresolved (neither answer held the taxonomy) — a prompt/taxonomy gap, not a "which model" signal.</div>';
+  } else if (sig.ok) {
+    h += '<div style="color:var(--soft);font-size:.85rem;margin-top:6px">' + esc(sig.why) + '</div>';
+  }
+  el.innerHTML = h;
 }
 async function loadQueue() {
   const db = await brainDb(); if (!db) return;
@@ -1230,6 +1448,7 @@ window.keyTurn = async (id, verdict) => {
   }
 };
 loadQueue().then(() => { renderInbox(); renderDoors(); });
+renderLedgerSignal();
 
 function clearFor(s, action) {
   const map = { 'process-cooling-cancellation': 'coolingExpired', 'draft-complaint-response': 'complaintsOpen',
@@ -1447,6 +1666,12 @@ $('btnTriage').onclick = async () => {
   if (!r.ok) { out.innerHTML = '<span style="color:var(--bad)">✗ ' + esc(r.why) + '</span>'; return; }
   const rec = r.receipt;
   window.__lastTriageReceipt = rec;
+  // section 9: persist this real receipt into the hash-chained ledger — never a demo receipt,
+  // only ones that just came from an actual local (and, if escalated, actual limb) model call
+  const ledgerNow = await loadLedger();
+  const appended = window.FALLBRAIN.appendReceipt(ledgerNow, rec);
+  if (appended.ok) { await saveLedger(appended.chain); }
+  renderLedgerSignal();
   const col = rec.resolved ? 'var(--good)' : 'var(--warn)';
   let h = '<div style="font-size:1.05rem;font-weight:700;color:' + col + '">' + (rec.tier === 'local' ? '● LOCAL' : '▲ ESCALATED' + (rec.by ? ' · answered by ' + esc(rec.by) : '')) + ' — cost ' + rec.cost + '</div>';
   h += '<div style="margin-top:6px">' + (rec.resolved ? ('recognised as <b>' + esc(rec.category) + '</b> (' + esc(rec.urgency) + ')') : '<span style="color:var(--warn)">not resolved</span>') + '</div>';

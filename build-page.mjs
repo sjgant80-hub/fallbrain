@@ -22,6 +22,14 @@ const cascade = strip('cascade.mjs');
 // this point in the concatenated script already carries everything cascade.mjs's own IIFE assigned.
 const triage = strip('triage.mjs')
   .replace(/^import \{[^}]*\} from '\.\/cascade\.mjs';$/m, "const { cascade, ASK_COST, LIMB_COST, sha256, canon } = window.FALLBRAIN;");
+// ledger.mjs composes BOTH cascade.mjs (sha256/canon/verifyCascadeReceipt) and triage.mjs
+// (verifyTriageReceipt) via real ES imports — same translation, both collapse onto window.FALLBRAIN
+// since by this point in the concatenated script both prior IIFEs have already assigned to it.
+const ledger = strip('ledger.mjs')
+  .replace(/^import \{[^}]*\} from '\.\/cascade\.mjs';$/m, "const { sha256, canon, verifyCascadeReceipt } = window.FALLBRAIN;")
+  .replace(/^import \{[^}]*\} from '\.\/triage\.mjs';$/m, "const { verifyTriageReceipt } = window.FALLBRAIN;");
+const signal = strip('signal.mjs')
+  .replace(/^import \{[^}]*\} from '\.\/ledger\.mjs';$/m, "const { verifyLedgerChain } = window.FALLBRAIN;");
 
 // each kernel gets its OWN scope — they all declare helper consts (obj etc.) that would collide in one
 const block = `/*__KERNEL_START__*/
@@ -54,6 +62,14 @@ Object.assign(window.FALLBRAIN, { ASK_COST, LIMB_COST, shouldEscalate, cascade, 
 ${triage.trim()}
 Object.assign(window.FALLBRAIN, { TRIAGE_FORMAT, CATEGORIES, CATEGORY_FIELD, URGENCIES, parseTriage, triageOutcome, triageReceipt, triageSignable, verifyTriageReceipt });
 })();
+(function(){
+${ledger.trim()}
+Object.assign(window.FALLBRAIN, { appendReceipt, verifyLedgerChain });
+})();
+(function(){
+${signal.trim()}
+Object.assign(window.FALLBRAIN, { escalationSignal, MIN_SAMPLE });
+})();
 /*__KERNEL_END__*/`;
 
 const htmlPath = join(here, 'index.html');
@@ -61,4 +77,4 @@ const html = readFileSync(htmlPath, 'utf8');
 const re = /\/\*__KERNEL_START__\*\/[\s\S]*?\/\*__KERNEL_END__\*\//;
 if (!re.test(html)) { console.error('REFUSED: markers not found'); process.exit(1); }
 writeFileSync(htmlPath, html.replace(re, () => block));
-console.log(`inlined ${((brain.length + state.length + draft.length + cascade.length + triage.length) / 1024).toFixed(1)}KB of gated law (deciding + derivation + drafting + cascade + triage) into index.html`);
+console.log(`inlined ${((brain.length + state.length + draft.length + cascade.length + triage.length + ledger.length + signal.length) / 1024).toFixed(1)}KB of gated law (deciding + derivation + drafting + cascade + triage + ledger + signal) into index.html`);
