@@ -15,6 +15,7 @@ const strip = (f) => readFileSync(join(here, f), 'utf8')
 const brain = strip('brain.mjs');
 const state = strip('state.mjs');
 const draft = strip('draft.mjs');
+const cascade = strip('cascade.mjs');
 
 // each kernel gets its OWN scope — they all declare helper consts (obj etc.) that would collide in one
 const block = `/*__KERNEL_START__*/
@@ -39,6 +40,10 @@ Object.assign(window.FALLBRAIN, { enqueue, turnKey, pending });
 ${strip('writeback.mjs').trim()}
 Object.assign(window.FALLBRAIN, { writebackPlan, writeAllowed, WRITE_CAPS });
 })();
+(function(){
+${cascade.trim()}
+Object.assign(window.FALLBRAIN, { ASK_COST, LIMB_COST, shouldEscalate, cascade, cascadeReceipt, cascadeSignable, verifyCascadeReceipt });
+})();
 /*__KERNEL_END__*/`;
 
 const htmlPath = join(here, 'index.html');
@@ -46,4 +51,4 @@ const html = readFileSync(htmlPath, 'utf8');
 const re = /\/\*__KERNEL_START__\*\/[\s\S]*?\/\*__KERNEL_END__\*\//;
 if (!re.test(html)) { console.error('REFUSED: markers not found'); process.exit(1); }
 writeFileSync(htmlPath, html.replace(re, () => block));
-console.log(`inlined ${((brain.length + state.length + draft.length) / 1024).toFixed(1)}KB of gated law (deciding + derivation + drafting) into index.html`);
+console.log(`inlined ${((brain.length + state.length + draft.length + cascade.length) / 1024).toFixed(1)}KB of gated law (deciding + derivation + drafting + cascade) into index.html`);

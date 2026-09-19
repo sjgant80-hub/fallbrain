@@ -3,5 +3,15 @@
     "mutation": ">= → >",
     "snippet": "count: Number.isInteger(it.count) && it.count >= 0 ? it.count : 0,",
     "reason": "boundary-equivalent by value: at it.count === 0 the true branch keeps 0 and the false branch falls back to 0 — the entry's count is 0 either way, so no input distinguishes >= from > here. Negative and non-integer counts are pinned to 0 by tests; positive counts pass through."
+  },
+  {
+    "mutation": "< → <=",
+    "snippet": "for (let t = 16; t < 64; t++) {",
+    "reason": "Genuinely equivalent: the mutated bound runs one extra schedule iteration that writes w[64], out of bounds on the fixed Uint32Array(64) — typed-array OOB writes are silently discarded, the loop body has no other side effect, and nothing reads past w[63]. Behaviour is bit-identical; the FIPS vectors pass either way. Same vendored sha256 as every sibling repo, same argument (cascade.mjs)."
+  },
+  {
+    "mutation": "< → <=",
+    "snippet": "for (let i = start; i < output.length; i++) {",
+    "reason": "Genuinely equivalent: the mutated bound runs one extra iteration reading output[output.length], which is undefined — undefined matches none of the branch characters (backslash, quote, braces), no state changes, and the loop then exits exactly as before. Behaviour is identical for every input. Ported verbatim from fallnode/kernel.mjs's shouldEscalate(), which baselined this exact line with this exact reasoning (cascade.mjs)."
   }
 ]
